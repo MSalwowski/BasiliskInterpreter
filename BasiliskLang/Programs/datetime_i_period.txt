@@ -1,0 +1,19 @@
+def CalculatePeriod(date1, date2):
+{
+if(date1 > date2):
+return date1 - date2
+else:
+return date2 - date1
+}
+
+inauguracja = datetime(2021,6,11,18,00)
+meczZeSzwecja = datetime(2021,6,23,20,30)
+okres = CalculatePeriod(inauguracja, meczZeSzwecja)
+
+print("Polska brała udział w tegorocznym EURO od ")
+print(inauguracja)
+print("do ")
+print(meczZeSzwecja)
+print("Trwało to imponujące ")
+print(okres.getDays())
+print("dni...")

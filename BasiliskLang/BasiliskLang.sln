@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31424.327
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BasiliskLang", "BasiliskLang\BasiliskLang.csproj", "{5326E677-D708-4986-BA84-B9A2FF349DFB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{EAC07C24-44C3-4300-ADFE-13AE675CE81C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5326E677-D708-4986-BA84-B9A2FF349DFB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5326E677-D708-4986-BA84-B9A2FF349DFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5326E677-D708-4986-BA84-B9A2FF349DFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5326E677-D708-4986-BA84-B9A2FF349DFB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EAC07C24-44C3-4300-ADFE-13AE675CE81C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EAC07C24-44C3-4300-ADFE-13AE675CE81C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EAC07C24-44C3-4300-ADFE-13AE675CE81C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EAC07C24-44C3-4300-ADFE-13AE675CE81C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {1296A47E-5AD7-47CE-96FD-64A6336F56A7}
+	EndGlobalSection
+EndGlobal

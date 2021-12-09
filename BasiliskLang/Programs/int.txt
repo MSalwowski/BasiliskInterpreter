@@ -1,0 +1,12 @@
+def BinaryCounter(start):
+{
+print("Zaczynam odliczac...")
+while(start > 0)
+{
+start = start - 1
+aktualnaLiczba = int(start)
+print(aktualnaLiczba.toBinary())
+}
+}
+
+BinaryCounter(15)
