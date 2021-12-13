@@ -7,88 +7,112 @@ using System.Threading.Tasks;
 
 namespace BasiliskLang
 {
-    public class Reader
+    public interface IReader
     {
-        private string source;
-        private StreamReader streamReader;
-        private int position = 0;
-        private int lineNumber = 0;
-        private char EOF = '\0'; // znak konca tekstu w stringa (?)
+        public int GetLineNumber { get; }
+        public int GetPosition { get; }
+        public char GetCurrentChar { get; }
+        public char GetEOFSign { get; }
+        public void Next();
+        public void UpdateLocation();
+    }
+    public class FileReader : IReader
+    {
+        public StreamReader streamReader;
+        public int position;
+        public int lineNumber;
 
-        public Reader(string source, InputType inputType)
-        {
-            // TODO: przenieść do abstrakcji dwa typy readerów - jeden z pliku drugi z inputu
-            if(inputType == InputType.File)
-            {
-                this.source = source;
-                streamReader = new StreamReader(source);
-            }
-            else if(inputType == InputType.String)
-            {
-                //strireader - bo to przekombinowane
-                MemoryStream memoryStream = new MemoryStream();
-                StreamWriter streamWriter = new StreamWriter(memoryStream);
-                streamWriter.Write(source);
-                streamWriter.Flush();
-                memoryStream.Position = 0;
-                streamReader = new StreamReader(memoryStream);
-            }
-                
-        }
+        public char GetCurrentChar => currentChar;
 
-        // moze nie zwracac tylko trzymac biezacy znak w readerze?
-        // obsluga znakow nowej linii
-        public char GetNextChar()
+        public int GetLineNumber => lineNumber;
+
+        public int GetPosition => position;
+
+        public char GetEOFSign => EOF;
+
+        public char EOF = '\0'; // znak konca tekstu w stringa (?)
+        private char currentChar;
+        public char previousChar;
+
+        public FileReader(StreamReader reader)
         {
-            if (streamReader.EndOfStream)
-                return EOF;
-            char currentChar;
+            streamReader = reader;
             currentChar = (char)streamReader.Read();
-            UpdateLocation(currentChar);
-            // wyniesc obsluge komentarzy do leksera
-            if (currentChar == '#')
-            {
-                while (currentChar != '\n')
-                {
-                    if (streamReader.EndOfStream)
-                        return EOF;
-                    currentChar = (char)streamReader.Read();
-                    UpdateLocation(currentChar);
-                }
-                UpdateLocation(currentChar);
-            }
-            return currentChar;
         }
 
-        public char PeekNextChar()
+        public void Next()
         {
             if (streamReader.EndOfStream)
-                return EOF;
-            char currentChar;
-            currentChar = (char)streamReader.Peek();
-            if (currentChar == '#')
+                currentChar = EOF;
+            else
             {
-                while (currentChar != '\n')
-                {
-                    if (streamReader.EndOfStream)
-                        return EOF;
-                    currentChar = (char)streamReader.Peek();
-                }
+                previousChar = currentChar;
+                currentChar = (char)streamReader.Read();
+                UpdateLocation();
             }
-            return currentChar;
         }
-        
-        private void UpdateLocation(char currentChar)
+        public void UpdateLocation()
         {
-            if (currentChar == '\n')
+            if (currentChar == '\r' || currentChar == '\n')
             {
-                position = 0;
-                lineNumber++;
+                if (previousChar != currentChar && (previousChar == '\r' || previousChar == '\n')) { } //skip
+                else
+                {
+                    position = 0;
+                    lineNumber++;
+                }
             }
             else
                 position++;
         }
-        public int LineNumber { get { return position; } }
-        public int Position { get { return lineNumber; } }
     }
+
+    public class InputReader : IReader
+    {
+        public StringReader stringReader;
+        public int position;
+        public int lineNumber;
+        public char GetCurrentChar => currentChar;
+
+        public int GetLineNumber => lineNumber;
+
+        public int GetPosition => position;
+        public char GetEOFSign => EOF;
+
+        public char EOF = '\0'; // znak konca tekstu w stringa (?)
+        public char currentChar;
+        public char previousChar;
+        public InputReader(StringReader reader)
+        {
+            stringReader = reader;
+            currentChar = (char)stringReader.Read();
+        }
+        public void Next()
+        {
+            if (currentChar == -1)
+                currentChar = EOF;
+            else
+            {
+                previousChar = currentChar;
+                currentChar = (char)stringReader.Read();
+                UpdateLocation();
+            }
+        }
+
+        public void UpdateLocation()
+        {
+            if (currentChar == '\r' || currentChar == '\n')
+            {
+                if (previousChar != currentChar && (previousChar == '\r' || previousChar == '\n')) { } //skip
+                else
+                {
+                    position = 0;
+                    lineNumber++;
+                }
+            }
+            else
+                position++;
+        }
+    }
+
 }

@@ -16,7 +16,7 @@ namespace BasiliskLang
 
         public void Parse()
         {
-            scanner.Scan();
+            //scanner.Scan();
         }
     }
 }

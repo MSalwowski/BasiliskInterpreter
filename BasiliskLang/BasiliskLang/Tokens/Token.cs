@@ -13,6 +13,8 @@ namespace BasiliskLang.Tokens
         Minus,
         Multiply,
         Divide,
+        And,
+        Or,
         LeftParanthesis,
         RightParanthesis,
         LeftCurlyBracket,
@@ -28,6 +30,7 @@ namespace BasiliskLang.Tokens
         Comma,
         Dot,
         Quote,
+        EOF,
         #endregion
         #region types
         Int,
@@ -35,6 +38,8 @@ namespace BasiliskLang.Tokens
         String,
         DateTime,
         Period,
+        Identifier,
+        Invalid,
         #endregion
         #region keywords
         If,
@@ -54,7 +59,7 @@ namespace BasiliskLang.Tokens
         public string value { get; set; }
         // ===================================================================
 
-        public Token(TokenType _type, int _postion, int _lineNumber, string _value = null)
+        public Token(TokenType _type, int _lineNumber, int _postion, string _value = null)
         {
             this.type = _type;
             this.lineNumber = _lineNumber;

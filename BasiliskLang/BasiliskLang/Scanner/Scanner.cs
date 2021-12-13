@@ -10,36 +10,18 @@ namespace BasiliskLang
 {
     public class Scanner
     {
-        public Reader reader;
+        public IReader reader;
         public Dictionary<string, Func<int, int, string, Token>> tokensDefinitions = new Dictionary<string, Func<int, int, string, Token>>();
         public List<string> keywords = new List<string>();
+        int currentTokenLineNumber;
+        int currentTokenPosition;
+        public Token currentToken { get; private set; }
 
-        public Scanner(string source, InputType inputType)
+        public Scanner(IReader reader)
         {
-            this.reader = new Reader(source, inputType);
+            this.reader = reader;
             InitializeDefinitions();
         }
-        // TOMODIFY: only for presentation
-        public List<Token> tokens = new List<Token>();
-        public Token Scan()
-        {
-            ReadAllTokens();
-            return null;
-        }
-        public void ReadAllTokens()
-        {
-            Token token;
-            do
-            {
-                token = GetNextToken();
-                if (token != null)
-                {
-                    tokens.Add(token);
-                    token.PrintTokenInfo();
-                }
-            } while (token != null);
-        }
-        // ===============================
         private void InitializeDefinitions()
         {
             #region signs
@@ -47,6 +29,8 @@ namespace BasiliskLang
             tokensDefinitions.Add("-", (line, column, value) => new Token(TokenType.Minus, line, column));
             tokensDefinitions.Add("*", (line, column, value) => new Token(TokenType.Multiply, line, column));
             tokensDefinitions.Add("/", (line, column, value) => new Token(TokenType.Divide, line, column));
+            tokensDefinitions.Add("&&", (line, column, value) => new Token(TokenType.And, line, column));
+            tokensDefinitions.Add("||", (line, column, value) => new Token(TokenType.Or, line, column));
             tokensDefinitions.Add("(", (line, column, value) => new Token(TokenType.LeftParanthesis, line, column));
             tokensDefinitions.Add(")", (line, column, value) => new Token(TokenType.RightParanthesis, line, column));
             tokensDefinitions.Add("{", (line, column, value) => new Token(TokenType.LeftCurlyBracket, line, column));
@@ -61,6 +45,7 @@ namespace BasiliskLang
             tokensDefinitions.Add("<=", (line, column, value) => new Token(TokenType.LessEqual, line, column));
             tokensDefinitions.Add(">", (line, column, value) => new Token(TokenType.Greater, line, column));
             tokensDefinitions.Add(">=", (line, column, value) => new Token(TokenType.GreaterEqual, line, column));
+            tokensDefinitions.Add("eof", (line, column, value) => new Token(TokenType.EOF, line, column));
             #endregion
             #region types
             tokensDefinitions.Add("int", (line, column, value) => new Token(TokenType.Int, line, column, value));
@@ -68,6 +53,8 @@ namespace BasiliskLang
             tokensDefinitions.Add("string", (line, column, value) => new Token(TokenType.String, line, column, value));
             tokensDefinitions.Add("datetime", (line, column, value) => new Token(TokenType.DateTime, line, column, value));
             tokensDefinitions.Add("period", (line, column, value) => new Token(TokenType.Period, line, column, value));
+            tokensDefinitions.Add("identifier", (line, column, value) => new Token(TokenType.Identifier, line, column, value));
+            tokensDefinitions.Add("invalid", (line, column, value) => new Token(TokenType.Invalid, line, column, value));
             #endregion
             #region keywords
             tokensDefinitions.Add("if", (line, column, value) => new Token(TokenType.If, line, column));
@@ -85,204 +72,192 @@ namespace BasiliskLang
             #endregion
         }
 
-        private bool IsSpecialSign(char c)
+        public void NextToken()
         {
-            // TOTHINK: sprawdzenie znaków (a może tak zostawić?)
-            return true;
-        }
-        public Token GetNextToken()
-        {
-            char currentChar;
-            int lineNumber, position;
-            do
-            {
-                
-                currentChar = reader.GetNextChar();
-            }
-            while (Char.IsWhiteSpace(currentChar));
-            // TODO: obsluga konca pliku
-            lineNumber = reader.LineNumber;
-            position = reader.Position;
-            return BuildToken(currentChar, lineNumber, position);
-        }
-
-        public Token BuildToken(char firstChar, int lineNumber, int position)
-        {
-            // podobnie jakw  przypadku readera przechowywac aktualny token, zeby zachowywal sie bardziej jak enumerator (patrz: reader)
-            if(Char.IsLetter(firstChar) || firstChar == '_')
-            {
-                // TODO: obsluga alphy
-                return BuildAlphaToken(firstChar, lineNumber, position);
-            }
-            else if(Char.IsDigit(firstChar))
-            {
-                // TOTHINK: co z nieważnymi zerami?
-                return BuildNumberToken(firstChar, lineNumber, position);
-            }
-            else if(IsSpecialSign(firstChar))
-            {
-                return BuildSpecialSignToken(firstChar, lineNumber, position);
-            }
+            while (Char.IsWhiteSpace(reader.GetCurrentChar))
+                reader.Next();
+            if (reader.GetCurrentChar == '#')
+                while (reader.GetCurrentChar != '\n' && reader.GetCurrentChar != reader.GetEOFSign)
+                    reader.Next();
+            currentTokenLineNumber = reader.GetLineNumber;
+            currentTokenPosition = reader.GetPosition;
+            if (reader.GetCurrentChar == reader.GetEOFSign)
+                BuildEOFToken();
             else
-            {
-                // TOTHINK: obsluga błędnego tokenu tutaj, lub w casie wyżej
-            }
-            return null; // invalid token
+                BuildNextToken();
         }
-        public Token BuildAlphaToken(char firstChar, int lineNumber, int position)
+        public void BuildNextToken()
         {
-            // todo:
-            if (!Char.IsLetter(firstChar))
-                return null;
-            // ===
-            StringBuilder tokenBuilder = new StringBuilder();
-            tokenBuilder.Append(firstChar);
-            char currentChar;
-            //while(Char.IsDigit(reader.currentChar) || Char.IsLetter(reader.currentChar) || reader.currentChar == '_')
-            //{
-            //    tokenBuilder.Append(currentChar);
-            //    reader.Next();
-            //}    
-            do
+            if (BuildAlphaToken())
+                return;
+            if (BuildNumberToken())
+                return;
+            if (BuildSpecialToken())
+                return;
+            if (BuildStringToken())
+                return;
+            BuildInvalidToken();
+        }
+        public bool BuildAlphaToken() {
+            if (Char.IsLetter(reader.GetCurrentChar) || reader.GetCurrentChar == '_' || reader.GetCurrentChar == '$')
             {
-                currentChar = reader.PeekNextChar();
-                if (Char.IsDigit(currentChar) || Char.IsLetter(currentChar) || currentChar == '_') // TOTHINK: dodać specialsign, żeby identyfiaktory mogły mieć też inne znaki
+                StringBuilder token = new StringBuilder();
+                do
                 {
-                    currentChar = reader.GetNextChar();
-                    tokenBuilder.Append(currentChar);
+                    token.Append(reader.GetCurrentChar);
+                    reader.Next();
                 }
-                else
-                    break;
-            }
-            while (true); // <= lepiej byloby tu wsadzic warunek przerywajacy 
-            Token token;
-            if (tokensDefinitions.ContainsKey(tokenBuilder.ToString().ToLower())) // <= trygetvalue
-                token = tokensDefinitions[tokenBuilder.ToString().ToLower()].Invoke(lineNumber, position, null);
-            else
-                token = tokensDefinitions["string"].Invoke(lineNumber, position, tokenBuilder.ToString());
-            // TOTHINK: a co jesli nie pasuje?
-            return token;
-        }
-        public Token BuildStringToken(char firstChar, int lineNumber, int position)
-        {
-            // TOTHINK: trochę dzika jest ta metoda, możnaby ją przemyśleć (akceptujemy wszystko? nawet entery?)
-            StringBuilder tokenBuilder = new StringBuilder();
-            tokenBuilder.Append(firstChar);
-            char currentChar;
-            do
-            {
-                // DISCLAIMER: nie ma operacji peek, bo chcemy zachłannie zebrać wszystko co jest, aż do znaku końca stringu
-                //brak escapeu
-                currentChar = reader.GetNextChar();
-                if (currentChar == '\"')
-                    break;
-                else
-                    tokenBuilder.Append(currentChar);
-            }
-            while (true);
-            Token token = tokensDefinitions["string"].Invoke(lineNumber, position, tokenBuilder.ToString());
-            return token;
-        }
-        public Token BuildSpecialSignToken(char firstChar, int lineNumber, int position)
-        {
-            StringBuilder tokenBuilder = new StringBuilder();
-            tokenBuilder.Append(firstChar);
-            switch (firstChar)
-            {
-                case '=':
-                    {
-                        // przygotwanie recept jako dictionary charow, on przejmuje obsluge w funkcji tego co jest ponizej
-                        if(reader.PeekNextChar() == '=')
-                        {
-                            char nextChar = reader.GetNextChar();
-                            tokenBuilder.Append(nextChar);
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                        }
-                        else   
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                    }
-                case '!':
-                    {
-                        if (reader.PeekNextChar() == '=')
-                        {
-                            char nextChar = reader.GetNextChar();
-                            tokenBuilder.Append(nextChar);
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                        }
-                        else
-                            // TODO: obsługa niewłaściwego tokenu
-                            return null; 
-                    }
-                case '<':
-                    {
-                        if (reader.PeekNextChar() == '=')
-                        {
-                            char nextChar = reader.GetNextChar();
-                            tokenBuilder.Append(nextChar);
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                        }
-                        else
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                    }
-                case '>':
-                    {
-                        if (reader.PeekNextChar() == '=')
-                        {
-                            char nextChar = reader.GetNextChar();
-                            tokenBuilder.Append(nextChar);
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                        }
-                        else
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                    }
-                case '\"':
-                    {
-                        return BuildStringToken(reader.GetNextChar(), lineNumber, position);
-                    }
-                default:
-                    {
-                        // TODO: obsługa nieznego symbolu
-                        if (tokensDefinitions.ContainsKey(tokenBuilder.ToString()))
-                            return tokensDefinitions[tokenBuilder.ToString()].Invoke(lineNumber, position, null);
-                        return null;
-                    }
-            }    
-        }
-        
-        public Token BuildNumberToken(char firstChar, int lineNumber, int position)
-        {
-            StringBuilder tokenBuilder = new StringBuilder();
-            tokenBuilder.Append(firstChar);
-            bool isDouble = false;
-            char currentChar;
-            do
-            {
-                currentChar = reader.PeekNextChar();
-                if (Char.IsDigit(currentChar))
+                while (Char.IsLetterOrDigit(reader.GetCurrentChar) || reader.GetCurrentChar == '_' || reader.GetCurrentChar == '$');
+                if (keywords.Contains(token.ToString()))
                 {
-                    currentChar = reader.GetNextChar();
-                    tokenBuilder.Append(currentChar);
+                    // keywords
+                    currentToken = tokensDefinitions[token.ToString()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                    return true;
                 }
-                else if (currentChar == '.' && !isDouble)
+                else 
                 {
-                    currentChar = reader.GetNextChar();
-                    tokenBuilder.Append(currentChar);
-                    isDouble = true;
+                    // identifier
+                    currentToken = tokensDefinitions["identifier"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                    return true;
+                }
+            }
+            return false;
+        }
+        public bool BuildNumberToken() 
+        {
+            StringBuilder token = new StringBuilder();
+            #region sign
+            if (reader.GetCurrentChar == '-')
+            {
+                token.Append(reader.GetCurrentChar);
+                reader.Next();
+            }
+            #endregion
+            #region integer
+            if (reader.GetCurrentChar == '0')
+            {
+                token.Append(reader.GetCurrentChar);
+                reader.Next();
+            }
+            else if (Char.IsDigit(reader.GetCurrentChar))
+            {
+                token.Append(reader.GetCurrentChar);
+                reader.Next();
+                while(Char.IsDigit(reader.GetCurrentChar))
+                {
+                    token.Append(reader.GetCurrentChar);
+                    reader.Next();
+                }
+            }
+            #endregion
+            #region fraction
+            if(reader.GetCurrentChar == '.')
+            {
+                token.Append(reader.GetCurrentChar);
+                reader.Next();
+                while (Char.IsDigit(reader.GetCurrentChar))
+                {
+                    token.Append(reader.GetCurrentChar);
+                    reader.Next();
+                }
+            }
+            #endregion
+            #region exponent
+            if(reader.GetCurrentChar == 'e' || reader.GetCurrentChar == 'E')
+            {
+                token.Append(reader.GetCurrentChar);
+                reader.Next();
+                if(reader.GetCurrentChar == '-' || reader.GetCurrentChar == '+')
+                {
+                    token.Append(reader.GetCurrentChar);
+                    reader.Next();
+                }
+                while (Char.IsDigit(reader.GetCurrentChar))
+                {
+                    token.Append(reader.GetCurrentChar);
+                    reader.Next();
+                }
+            }
+            #endregion
+            if(token.Length > 0)
+            {
+                if (token.ToString().Contains('.'))
+                    currentToken = tokensDefinitions["double"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                else
+                    currentToken = tokensDefinitions["int"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                return true;
+            }
+            return false;
+        }
+        public bool BuildSpecialToken() {
+            StringBuilder token = new StringBuilder();
+            token.Append(reader.GetCurrentChar);
+            if(tokensDefinitions.ContainsKey(token.ToString()) || reader.GetCurrentChar == '!' || reader.GetCurrentChar == '&' || reader.GetCurrentChar == '|')
+            {
+                reader.Next();
+                token.Append(reader.GetCurrentChar);
+                if(tokensDefinitions.ContainsKey(token.ToString()))
+                {
+                    // two-sign tokens
+                    currentToken = tokensDefinitions[token.ToString()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                    return true;
                 }
                 else
                 {
-                    // TOTHINK: posiada już w sobie '.', a dostaje kolejną - co robić?
-                    break;
+                    // one-sign tokens
+                    // TODO: how to handle taken char???
+                    if(token[0] == '!' || token[0] == '&' || token[0] == '|')
+                    {
+                        while(!Char.IsWhiteSpace(reader.GetCurrentChar))
+                        {
+                            token.Append(reader.GetCurrentChar);
+                            reader.Next();
+                        }
+                        currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                        return true;
+                    }
+                    else
+                    {
+                        token.Length--;
+                        currentToken = tokensDefinitions[token.ToString()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                        return true;
+                    }
                 }
             }
-            while (true);
-            Token token = tokenBuilder.ToString().Contains('.') ? tokensDefinitions["double"].Invoke(lineNumber, position, tokenBuilder.ToString()) : tokensDefinitions["int"].Invoke(lineNumber, position, tokenBuilder.ToString());
-            return token;
+            return false;
         }
-
-        
-        
-
-
+        public bool BuildStringToken()
+        {
+            if(reader.GetCurrentChar == '"')
+            {
+                StringBuilder token = new StringBuilder();
+                reader.Next();
+                while(reader.GetCurrentChar != '"')
+                {
+                    if(reader.GetCurrentChar == '\\')
+                    {
+                        reader.Next();
+                        // TODO: u + 4 hex digits
+                        if (reader.GetCurrentChar == '"' || reader.GetCurrentChar == '\\' || reader.GetCurrentChar == '/' || reader.GetCurrentChar == 'b' || reader.GetCurrentChar == 'f' || reader.GetCurrentChar == 'n' || reader.GetCurrentChar == 'r' || reader.GetCurrentChar == 't')
+                            token.Append(reader.GetCurrentChar);
+                        else
+                        {
+                            currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                            return true;
+                        }
+                    }
+                    token.Append(reader.GetCurrentChar);
+                    reader.Next();
+                }
+                reader.Next();
+                currentToken = tokensDefinitions["string"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                return true;
+            }
+            return false;
+        }
+        public void BuildInvalidToken() { currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, null); }
+        public void BuildEOFToken() {
+            currentToken = tokensDefinitions["eof"].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+        }
     }
 }
