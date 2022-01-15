@@ -1,5 +1,1 @@
-"hej #not_closed
-"a"b"c" #string_identifier_string
-"a\"b\"c" #string
-"first_line\nsecond_lline"
-"be4_tab \t after_tab"
+a()

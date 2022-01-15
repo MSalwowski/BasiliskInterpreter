@@ -8,7 +8,7 @@ namespace BasiliskLang
         public double value;
         public DoubleValue(Token _token) : base(NodeType.Double)
         {
-            value = Convert.ToDouble(_token.value);
+            value = Double.Parse(_token.value, System.Globalization.CultureInfo.InvariantCulture);
         }
     }
 }

@@ -1,5 +1,0 @@
-!! #invalid
-!abc #invalid_plus_identifier
-&c #invalid
-|d #invalid
-!=!!===! #valid_invalid_valid_valid_invalid

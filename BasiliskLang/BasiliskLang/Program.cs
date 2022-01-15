@@ -9,6 +9,12 @@ namespace BasiliskLang
 {
     class Program
     {
+        public static void PrintNode(Node node)
+        {
+            Console.WriteLine(node.type + " \tchildren: " + node.children.Count);
+            foreach (Node child in node.children)
+                PrintNode(child);
+        }
         public static void Main()
         {
             string source = Path.GetFullPath("..\\..\\..\\..\\Programs\\test.txt");
@@ -17,15 +23,19 @@ namespace BasiliskLang
             {
                 reader = new FileReader(sr);
                 Scanner scanner = new Scanner(reader);
-                scanner.NextToken();
-                while (scanner.currentToken.type != Tokens.TokenType.EOF)
-                {
-                    scanner.currentToken.PrintTokenInfo();
-                    scanner.NextToken();
-                }
-                //Parser parser = new Parser(scanner);
-                //ProgramRoot pr = parser.Parse();
+                //scanner.NextToken();
+                //while (scanner.currentToken.type != Tokens.TokenType.EOF)
+                //{
+                //    scanner.currentToken.PrintTokenInfo();
+                //    scanner.NextToken();
+                //}
+                Parser parser = new Parser(scanner);
+                ProgramRoot pr = parser.Parse();
+                PrintNode(pr);
+
             }
         }
+
+        
     }
 }

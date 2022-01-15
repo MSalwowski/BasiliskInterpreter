@@ -50,7 +50,7 @@ namespace BasiliskLang.Tokens
         Print
         #endregion
     }
-    public class Token
+    public class Token : IEquatable<Token>
     {
         // TODO: zmiana dostępności na private, public tylko dla demonstracji
         public TokenType type { get; set; }
@@ -72,5 +72,12 @@ namespace BasiliskLang.Tokens
             Console.WriteLine("line no: " + lineNumber + "\tcolumn no: " + position + "\ttype: " + type + (value != null ? "\t\tvalue:" + value : ""));
         }
         // ===============================
+        public bool Equals(Token other)
+        {
+            if (this.type == other.type && this.value == other.value && this.lineNumber == other.lineNumber && this.position == other.position)
+                return true;
+            return false;
+        }
+
     }
 }

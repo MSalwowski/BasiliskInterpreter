@@ -110,10 +110,10 @@ namespace BasiliskLang
                     reader.Next();
                 }
                 while (Char.IsLetterOrDigit(reader.GetCurrentChar) || reader.GetCurrentChar == '_' || reader.GetCurrentChar == '$');
-                if (keywords.Contains(token.ToString()))
+                if (keywords.Contains(token.ToString().ToLower()))
                 {
                     // keywords
-                    currentToken = tokensDefinitions[token.ToString()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                    currentToken = tokensDefinitions[token.ToString().ToLower()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
                     return true;
                 }
                 else 

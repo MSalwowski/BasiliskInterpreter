@@ -149,7 +149,7 @@ namespace BasiliskLang
             while (statement != null)
             {
                 statements.Add(statement);
-                scanner.NextToken();
+                //scanner.NextToken();
                 statement = ParseStatement();
             }
             return statements;
@@ -161,7 +161,7 @@ namespace BasiliskLang
             AssertTokenTypeOrRaiseError("Expected left curly bracket", TokenType.LeftCurlyBracket);
             scanner.NextToken();
             List<Statement> statements = ParseStatements();
-            blockStatement.SetStatements(statements);
+            blockStatement.SetStatements(statements);  
             //scanner.NextToken();
             AssertTokenTypeOrRaiseError("Expected right curly bracket", TokenType.RightCurlyBracket);
             return blockStatement;
@@ -207,8 +207,9 @@ namespace BasiliskLang
             Expression condition = ParseExpression();
             AssertNodeOrRaiseError("Expected condition", condition);
             ifStatement.SetCondition(condition);
-
-            scanner.NextToken();
+            // care: it was changed, may be wrong
+            //scanner.NextToken();
+            // we expect ')' to be current
             AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
 
             scanner.NextToken();
@@ -245,9 +246,14 @@ namespace BasiliskLang
             Expression condition = ParseExpression();
             AssertNodeOrRaiseError("Expected condition", condition);
             whileStatement.SetCondition(condition);
+            
+            //scanner.NextToken();
+            AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
+            AssertTokenTypeOrRaiseError("Expected colon", TokenType.Colon);
+
+            scanner.NextToken();
             BlockStatement blockStatement = ParseBlockStatement();
             whileStatement.SetBlockStatement(blockStatement);
             return whileStatement;
@@ -295,7 +301,9 @@ namespace BasiliskLang
         {
             List<Expression> arguments = new List<Expression>();
             Expression argument = ParseExpression();
-            while (argument != null)
+            // change: parseexpression ALWAYS moves scanner and is never null
+            //while (argument != null)
+            while(!AssertTokenType(TokenType.RightParanthesis))
             {
                 arguments.Add(argument);
                 scanner.NextToken();
@@ -430,7 +438,11 @@ namespace BasiliskLang
         public IntValue ParseInt()
         {
             if (AssertTokenType(TokenType.Int))
-                return new IntValue(scanner.currentToken);
+            {
+                var intValue = new IntValue(scanner.currentToken);
+                scanner.NextToken();
+                return intValue;
+            }
             else
                 return null;
         }
@@ -438,15 +450,23 @@ namespace BasiliskLang
         public DoubleValue ParseDouble()
         {
             if (AssertTokenType( TokenType.Double))
-                return new DoubleValue(scanner.currentToken);
+            {
+                var doubleValue = new DoubleValue(scanner.currentToken);
+                scanner.NextToken();
+                return doubleValue;
+            }
             else
                 return null;
         }
         // string
         public StringValue ParseString()
         {
-            if (AssertTokenType(TokenType.Double))
-                return new StringValue(scanner.currentToken);
+            if (AssertTokenType(TokenType.String))
+            {
+                var stringValue = new StringValue(scanner.currentToken);
+                scanner.NextToken();
+                return stringValue;
+            }
             else
                 return null;
         }
