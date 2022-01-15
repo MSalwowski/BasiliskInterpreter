@@ -17,11 +17,14 @@ namespace BasiliskLang
             {
                 reader = new FileReader(sr);
                 Scanner scanner = new Scanner(reader);
-                while(scanner.currentToken?.type != Tokens.TokenType.EOF)
+                scanner.NextToken();
+                while (scanner.currentToken.type != Tokens.TokenType.EOF)
                 {
-                    scanner.NextToken();
                     scanner.currentToken.PrintTokenInfo();
+                    scanner.NextToken();
                 }
+                //Parser parser = new Parser(scanner);
+                //ProgramRoot pr = parser.Parse();
             }
         }
     }

@@ -1,0 +1,6 @@
+if
+else
+def
+while
+return
+print

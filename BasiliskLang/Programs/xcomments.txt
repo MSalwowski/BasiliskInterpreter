@@ -1,0 +1,7 @@
+#starts_with_comment
+variable
+###sth_after_comment
+sth_b4_comment#u_cant_see_me
+#
+#comments_next_to_each_other
+#ends_with_comment_of_course

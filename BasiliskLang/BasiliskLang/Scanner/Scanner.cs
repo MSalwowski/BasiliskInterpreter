@@ -74,11 +74,13 @@ namespace BasiliskLang
 
         public void NextToken()
         {
-            while (Char.IsWhiteSpace(reader.GetCurrentChar))
-                reader.Next();
-            if (reader.GetCurrentChar == '#')
-                while (reader.GetCurrentChar != '\n' && reader.GetCurrentChar != reader.GetEOFSign)
+            while(Char.IsWhiteSpace(reader.GetCurrentChar) || reader.GetCurrentChar == '#')
+            {
+                if (reader.GetCurrentChar == '#')
+                    reader.SkipLineComment('#');
+                else
                     reader.Next();
+            }
             currentTokenLineNumber = reader.GetLineNumber;
             currentTokenPosition = reader.GetPosition;
             if (reader.GetCurrentChar == reader.GetEOFSign)
@@ -126,13 +128,14 @@ namespace BasiliskLang
         public bool BuildNumberToken() 
         {
             StringBuilder token = new StringBuilder();
-            #region sign
-            if (reader.GetCurrentChar == '-')
-            {
-                token.Append(reader.GetCurrentChar);
-                reader.Next();
-            }
-            #endregion
+            //#region sign
+            //if (reader.GetCurrentChar == '-')
+            //{
+            //    token.Append(reader.GetCurrentChar);
+            //    reader.Next();
+            //}
+            //#endregion
+            // sign will be deducted in parser
             #region integer
             if (reader.GetCurrentChar == '0')
             {
@@ -181,6 +184,13 @@ namespace BasiliskLang
             #endregion
             if(token.Length > 0)
             {
+                // creating unary minus caused problems, so its necessary to create it right here
+                //if (token.Length == 1)
+                //    if(token[0] == '-')
+                //    {
+                //        currentToken = tokensDefinitions["-"].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                //        return true;
+                //    }
                 if (token.ToString().Contains('.'))
                     currentToken = tokensDefinitions["double"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
                 else
@@ -200,6 +210,7 @@ namespace BasiliskLang
                 {
                     // two-sign tokens
                     currentToken = tokensDefinitions[token.ToString()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                    reader.Next();
                     return true;
                 }
                 else
@@ -208,12 +219,8 @@ namespace BasiliskLang
                     // TODO: how to handle taken char???
                     if(token[0] == '!' || token[0] == '&' || token[0] == '|')
                     {
-                        while(!Char.IsWhiteSpace(reader.GetCurrentChar))
-                        {
-                            token.Append(reader.GetCurrentChar);
-                            reader.Next();
-                        }
                         currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                        reader.Next();
                         return true;
                     }
                     else
@@ -234,20 +241,51 @@ namespace BasiliskLang
                 reader.Next();
                 while(reader.GetCurrentChar != '"')
                 {
-                    if(reader.GetCurrentChar == '\\')
+                    if (reader.GetCurrentChar == '\\')
                     {
                         reader.Next();
-                        // TODO: u + 4 hex digits
-                        if (reader.GetCurrentChar == '"' || reader.GetCurrentChar == '\\' || reader.GetCurrentChar == '/' || reader.GetCurrentChar == 'b' || reader.GetCurrentChar == 'f' || reader.GetCurrentChar == 'n' || reader.GetCurrentChar == 'r' || reader.GetCurrentChar == 't')
-                            token.Append(reader.GetCurrentChar);
-                        else
+                        switch (reader.GetCurrentChar)
                         {
-                            currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
-                            return true;
+                            case 'n':
+                                token.Append('\n');
+                                break;
+                            case 'b':
+                                token.Append('\b');
+                                break;
+                            case 'f':
+                                token.Append('\f');
+                                break;
+                            case 'r':
+                                token.Append('\r');
+                                break;
+                            case 't':
+                                token.Append('\t');
+                                break;
+                            case '"':
+                                token.Append('"');
+                                break;
+                            case '\\':
+                                token.Append('\\');
+                                break;
+                            default:
+                                currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                                reader.Next();
+                                return true;
                         }
+                        reader.Next();
                     }
-                    token.Append(reader.GetCurrentChar);
-                    reader.Next();
+                    else if (reader.GetCurrentChar == '\n' || reader.GetCurrentChar == '\r' || reader.GetCurrentChar == reader.GetEOFSign)
+                    {
+                        currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                        reader.Next();
+                        return true;
+                    }
+                    else
+                    {
+                        token.Append(reader.GetCurrentChar);
+                        reader.Next();
+                    }
+                    
                 }
                 reader.Next();
                 currentToken = tokensDefinitions["string"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
@@ -255,7 +293,7 @@ namespace BasiliskLang
             }
             return false;
         }
-        public void BuildInvalidToken() { currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, null); }
+        public void BuildInvalidToken() { currentToken = tokensDefinitions["invalid"].Invoke(currentTokenLineNumber, currentTokenPosition, reader.GetCurrentChar.ToString()); reader.Next(); }
         public void BuildEOFToken() {
             currentToken = tokensDefinitions["eof"].Invoke(currentTokenLineNumber, currentTokenPosition, null);
         }

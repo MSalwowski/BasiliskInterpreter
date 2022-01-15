@@ -1,0 +1,82 @@
+program     				=   definitions, statements;
+
+definitions 				=   definition, {definition};
+
+definition  				=   "def", identifier, '(', parameters, ')', ':', block;
+
+parameters  				=   [assignable, {',', assignable}];
+
+assignable  				=   identifier, ['.', identifier]
+
+statements					=   [statement, {statement}];
+
+block       				=   '{', statements, '}';
+
+statement 					=	block      																	---- to do wyciecia (niezaimplementowane)
+								if_statement
+								while_statement
+								return_statement
+								assign_statement;
+								call;
+
+if_statement    			=   "if", '(', expression, ')', ':', block, ["else", ':', block];
+
+while_statement 			=   "while", '(', expression, ')', block;
+
+return_statement			=	"return", expression;
+
+assign_statement			=   assignable, assign_operator, expression;
+
+assign_operator	    		= 	"=";
+
+call        				=   assignable, '(', [arguments], ')';
+
+arguments   				=   expression, {',', expression};
+
+expression  				=   logic_expression;
+
+logic_expression	    	=   relation_expression, {logic_operator, relation_expression};
+
+logic_operator	    		=   "&&"
+								"||";
+
+relation_expression     	=   additive_expression, {relation_operator, additive_expression};
+                    
+relation_operator	    	=   "=="
+								"!="
+								">"
+								">="
+								"<"
+								"<=";
+
+additive_expression	    	=   multiplicative_expression, {additive_operator, multiplicative_expression};
+
+additive_operator	    	=   "+"
+								"-";
+
+multiplicative_expression	=   unary_expression, { multiplicative_operator, unary_expression};
+
+multiplicative_operator	    = 	"*"
+								"/";
+                    
+unary_expression	    	=   ["-"], simple_expression;
+
+simple_expression  			=	int
+								double
+								string
+								'(', expression, ')'											---- TODO
+								assignable
+								call;
+
+
+               
+                
+
+
+int         				=   [1-9][0-9]*|[0]
+
+double      				=   ([1-9][0-9]*([.][0-9]+)?|[0][.][0-9]+)
+
+string      				=   \"(\\[^n]|[^\\])*(\\)*\"
+
+identifier  				=   [a-zA-Z][a-zA-Z0-9]*
