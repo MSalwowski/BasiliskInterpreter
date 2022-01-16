@@ -9,8 +9,8 @@ namespace BasiliskLang
 {
     public class Parser
     {
-        Scanner scanner;
-        public Parser(Scanner _scanner)
+        IScanner scanner;
+        public Parser(IScanner _scanner)
         {
             scanner = _scanner;
         }
@@ -99,19 +99,17 @@ namespace BasiliskLang
         // parameters  				=   [assignable, {',', assignable}];
         public List<Assignable> ParseParameters() 
         {
+            List<Assignable> parameters = new List<Assignable>();
             Assignable parameter = ParseAssignable();
             if (!AssertNode(parameter))
                 return null;
-            List<Assignable> parameters = new List<Assignable>();
             parameters.Add(parameter);
-            scanner.NextToken();
             while (AssertTokenType(TokenType.Comma))
             {
                 scanner.NextToken();
                 parameter = ParseAssignable();
                 AssertNodeOrRaiseError("Expected parameter", parameter);
                 parameters.Add(parameter);
-                scanner.NextToken();
             }
             // if parameter == null na samym poczatku to moze nextToken?
             return parameters;
@@ -291,7 +289,9 @@ namespace BasiliskLang
 
             scanner.NextToken(); // because we know that current was '('
             List<Expression> arguments = ParseArguments();
-            call.SetArguments(arguments);
+            // check if there are any arguments
+            if(AssertNode(arguments?[0]))
+                call.SetArguments(arguments);
             AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
             // maybe move? its last token in line (perhaps)
             return call;
@@ -301,13 +301,16 @@ namespace BasiliskLang
         {
             List<Expression> arguments = new List<Expression>();
             Expression argument = ParseExpression();
-            // change: parseexpression ALWAYS moves scanner and is never null
-            //while (argument != null)
-            while(!AssertTokenType(TokenType.RightParanthesis))
+            if (!AssertNode(argument))
+                return null;
+            arguments.Add(argument);
+            while (AssertTokenType(TokenType.Comma))
             {
-                arguments.Add(argument);
+                //consume comma
                 scanner.NextToken();
                 argument = ParseExpression();
+                AssertNodeOrRaiseError("Expected argument", argument);
+                arguments.Add(argument);
             }
             return arguments;
         }
@@ -403,6 +406,8 @@ namespace BasiliskLang
                 scanner.NextToken();
             }
             SimpleExpression expression = ParseSimpleExpression();
+            if (!AssertNode(expression))
+                return null;
             if (unaryExpression.isNegated)
                 AssertNodeOrRaiseError("Expected expression", expression);
             unaryExpression.SetExpression(expression);
@@ -413,6 +418,7 @@ namespace BasiliskLang
         //                              string
         //                              assignable
         //                              call;
+        //                              '(', expression, ')'
         public SimpleExpression ParseSimpleExpression()
         {
             SimpleExpression simpleExpression;
@@ -430,6 +436,17 @@ namespace BasiliskLang
             {
                 if(AssertTokenType(TokenType.LeftParanthesis))
                     simpleExpression = ParseCallStatement(simpleExpression as Assignable);
+                return simpleExpression;
+            }
+            if(AssertTokenType(TokenType.LeftParanthesis))
+            {
+                scanner.NextToken();
+                Expression expression = ParseExpression();
+                AssertNodeOrRaiseError("Expected expression", expression);
+                simpleExpression = new GroupedExpression();
+                (simpleExpression as GroupedExpression).SetExpression(expression);
+                AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
+                scanner.NextToken();
                 return simpleExpression;
             }
             return null; // we havent find any expression - pass empty one

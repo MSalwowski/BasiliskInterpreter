@@ -7,7 +7,7 @@ using System.IO;
 
 namespace Tests
 {
-    public class Tests
+    public class ScannerTests
     {
         [Test]
         public void KeywordsLoweAndUpperCase()

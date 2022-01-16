@@ -8,15 +8,14 @@ using System.Threading.Tasks;
 
 namespace BasiliskLang
 {
-    public class Scanner
+    public class Scanner : IScanner
     {
         public IReader reader;
         public Dictionary<string, Func<int, int, string, Token>> tokensDefinitions = new Dictionary<string, Func<int, int, string, Token>>();
         public List<string> keywords = new List<string>();
         int currentTokenLineNumber;
         int currentTokenPosition;
-        public Token currentToken { get; private set; }
-
+        public Token currentToken { get; set; }
         public Scanner(IReader reader)
         {
             this.reader = reader;

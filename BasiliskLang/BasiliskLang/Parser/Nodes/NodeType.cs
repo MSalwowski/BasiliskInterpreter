@@ -22,6 +22,7 @@
         SimpleExpression,
         Int,
         Double,
-        String
+        String,
+        GroupedExpression
     }
 }

@@ -58,7 +58,7 @@ namespace BasiliskLang.Tokens
         public int position { get; set; }
         public string value { get; set; }
         // ===================================================================
-
+        public Token() { }
         public Token(TokenType _type, int _lineNumber, int _postion, string _value = null)
         {
             this.type = _type;
