@@ -10,11 +10,11 @@ namespace BasiliskLang.Tokens
     {
         public WritableToken(TokenType type) : base() { this.type = type; }
 
-        //public WritableToken WithType(TokenType type)
-        //{
-        //    this.type = type;
-        //    return this;
-        //}
+        public WritableToken WithValue(string _value)
+        {
+            this.value = _value;
+            return this;
+        }
 
         public new bool Equals(Token other)
         {

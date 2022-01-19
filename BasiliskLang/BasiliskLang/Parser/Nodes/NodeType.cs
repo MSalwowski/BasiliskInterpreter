@@ -23,6 +23,7 @@
         Int,
         Double,
         String,
+        Bool,
         GroupedExpression
     }
 }

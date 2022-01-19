@@ -36,6 +36,7 @@ namespace BasiliskLang.Tokens
         Int,
         Double,
         String,
+        Bool,
         DateTime,
         Period,
         Identifier,

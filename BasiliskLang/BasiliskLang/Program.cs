@@ -23,18 +23,18 @@ namespace BasiliskLang
             {
                 reader = new FileReader(sr);
                 Scanner scanner = new Scanner(reader);
-                scanner.NextToken();
-                while (scanner.currentToken.type != Tokens.TokenType.EOF)
-                {
-                    scanner.currentToken.PrintTokenInfo();
-                    scanner.NextToken();
-                }
-                //Parser parser = new Parser(scanner);
-                //ProgramRoot pr = parser.Parse();
-                //PrintNode(pr);
+                //scanner.NextToken();
+                //while (scanner.currentToken.type != Tokens.TokenType.EOF)
+                //{
+                //    scanner.currentToken.PrintTokenInfo();
+                //    scanner.NextToken();
+                //}
+                Parser parser = new Parser(scanner);
+                ProgramRoot pr = parser.Parse();
+                PrintNode(pr);
             }
         }
 
-        
+
     }
 }

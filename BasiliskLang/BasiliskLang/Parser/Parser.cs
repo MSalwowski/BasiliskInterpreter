@@ -265,8 +265,10 @@ namespace BasiliskLang
 
             scanner.NextToken();
             Expression expression = ParseExpression();
-            AssertNodeOrRaiseError("Expected expression", expression);
-            returnStatement.SetExpression(expression);
+            if(AssertNode(expression))
+                returnStatement.SetExpression(expression);
+            //AssertNodeOrRaiseError("Expected expression", expression);
+            //returnStatement.SetExpression(expression);
             return returnStatement;
         }
         // assign_statement			=   assignable, assign_operator, expression;
@@ -431,6 +433,9 @@ namespace BasiliskLang
             simpleExpression = ParseString();
             if (AssertNode(simpleExpression))
                 return simpleExpression;
+            simpleExpression = ParseBool();
+            if (AssertNode(simpleExpression))
+                return simpleExpression;
             simpleExpression = ParseAssignable();
             if (AssertNode(simpleExpression))
             {
@@ -483,6 +488,18 @@ namespace BasiliskLang
                 var stringValue = new StringValue(scanner.currentToken);
                 scanner.NextToken();
                 return stringValue;
+            }
+            else
+                return null;
+        }
+        // bool
+        public BoolValue ParseBool()
+        {
+            if (AssertTokenType(TokenType.Bool))
+            {
+                var boolValue = new BoolValue(scanner.currentToken);
+                scanner.NextToken();
+                return boolValue;
             }
             else
                 return null;

@@ -160,5 +160,6 @@ namespace Tests
                 } while (scanner.currentToken.type != TokenType.EOF);
             }
         }
+        // TODO: maybe add one test for numbers
     }
 }

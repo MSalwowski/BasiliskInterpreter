@@ -50,6 +50,7 @@ namespace BasiliskLang
             tokensDefinitions.Add("int", (line, column, value) => new Token(TokenType.Int, line, column, value));
             tokensDefinitions.Add("double", (line, column, value) => new Token(TokenType.Double, line, column, value));
             tokensDefinitions.Add("string", (line, column, value) => new Token(TokenType.String, line, column, value));
+            tokensDefinitions.Add("bool", (line, column, value) => new Token(TokenType.Bool, line, column, value));
             tokensDefinitions.Add("datetime", (line, column, value) => new Token(TokenType.DateTime, line, column, value));
             tokensDefinitions.Add("period", (line, column, value) => new Token(TokenType.Period, line, column, value));
             tokensDefinitions.Add("identifier", (line, column, value) => new Token(TokenType.Identifier, line, column, value));
@@ -91,10 +92,12 @@ namespace BasiliskLang
         {
             if (BuildAlphaToken())
                 return;
-            if (BuildNumberToken())
-                return;
             if (BuildSpecialToken())
                 return;
+            if (BuildNumberToken())
+                return;
+            //if (BuildSpecialToken())
+            //    return;
             if (BuildStringToken())
                 return;
             BuildInvalidToken();
@@ -113,6 +116,11 @@ namespace BasiliskLang
                 {
                     // keywords
                     currentToken = tokensDefinitions[token.ToString().ToLower()].Invoke(currentTokenLineNumber, currentTokenPosition, null);
+                    return true;
+                }
+                else if(token.ToString().ToLower() == "true" || token.ToString().ToLower() == "false")
+                {
+                    currentToken = tokensDefinitions["bool"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
                     return true;
                 }
                 else 

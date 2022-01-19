@@ -1,4 +1,1 @@
-def func():
-{
-return 1
-}
+a = true || false

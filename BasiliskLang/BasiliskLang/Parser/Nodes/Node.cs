@@ -21,8 +21,6 @@ namespace BasiliskLang
                 return false;
             for (int i = 0; i < children.Count; i++)
             {
-                if (this.children[i].type != other.children[i].type)
-                    return false;
                 if (this.children[i].Equals(other.children[i])) { }
                 else
                     return false;
