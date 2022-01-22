@@ -51,8 +51,6 @@ namespace BasiliskLang
             tokensDefinitions.Add("double", (line, column, value) => new Token(TokenType.Double, line, column, value));
             tokensDefinitions.Add("string", (line, column, value) => new Token(TokenType.String, line, column, value));
             tokensDefinitions.Add("bool", (line, column, value) => new Token(TokenType.Bool, line, column, value));
-            tokensDefinitions.Add("datetime", (line, column, value) => new Token(TokenType.DateTime, line, column, value));
-            tokensDefinitions.Add("period", (line, column, value) => new Token(TokenType.Period, line, column, value));
             tokensDefinitions.Add("identifier", (line, column, value) => new Token(TokenType.Identifier, line, column, value));
             tokensDefinitions.Add("invalid", (line, column, value) => new Token(TokenType.Invalid, line, column, value));
             #endregion
@@ -62,13 +60,11 @@ namespace BasiliskLang
             tokensDefinitions.Add("def", (line, column, value) => new Token(TokenType.Define, line, column));
             tokensDefinitions.Add("while", (line, column, value) => new Token(TokenType.While, line, column));
             tokensDefinitions.Add("return", (line, column, value) => new Token(TokenType.Return, line, column));
-            tokensDefinitions.Add("print", (line, column, value) => new Token(TokenType.Print, line, column));
             keywords.Add("if");
             keywords.Add("else");
             keywords.Add("def");
             keywords.Add("while");
             keywords.Add("return");
-            keywords.Add("print");
             #endregion
         }
 

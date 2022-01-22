@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BasiliskLang.Helpers;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,9 +12,12 @@ namespace BasiliskLang
     {
         public static void PrintNode(Node node)
         {
-            Console.WriteLine(node.type + " \tchildren: " + node.children.Count);
+            Console.Write(node.type + " \tchildren: " + node.children.Count);
+            if (node.children != null)
+                Console.WriteLine();
             foreach (Node child in node.children)
-                PrintNode(child);
+                if(child != null)
+                    PrintNode(child);
         }
         public static void Main()
         {
@@ -29,10 +33,12 @@ namespace BasiliskLang
                 //    scanner.currentToken.PrintTokenInfo();
                 //    scanner.NextToken();
                 //}
-                Parser parser = new Parser(scanner);
+                IErrorHandler errorHandler = new ErrorHandler();
+                Parser parser = new Parser(scanner, errorHandler);
                 ProgramRoot pr = parser.Parse();
                 PrintNode(pr);
             }
+
         }
 
 

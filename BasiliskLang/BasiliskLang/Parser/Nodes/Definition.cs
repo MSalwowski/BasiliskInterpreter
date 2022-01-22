@@ -1,32 +1,26 @@
-﻿using System.Collections.Generic;
+﻿using BasiliskLang.Interpreter;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BasiliskLang
 {
     public class Definition : Node
     {
-        public Identifier identifier;
-        public List<Assignable> parameters;
-        public BlockStatement blockStatement;
 
-        public Definition() : base(NodeType.Definition) { parameters = new List<Assignable>(); }
-
-        public void SetIdentifier(Identifier _identifier)
+        public Identifier Identifier => children[0] as Identifier;
+        public List<Assignable> Parameters => children.Count > 2 ? children.GetRange(1, children.Count - 2).Cast<Assignable>().ToList() : null;
+        public BlockStatement BlockStatement => children[children.Count - 1] as BlockStatement;
+        public Definition(Identifier identifier, IEnumerable<Assignable> parameters, BlockStatement blockStatement) : base(NodeType.Definition) 
         {
-            identifier = _identifier;
-            children.Add(_identifier);
-        }
-        public void SetParameters(List<Assignable> _parameters)
-        {
-            parameters = _parameters;
-            if(parameters!=null)
-                foreach (var parameter in _parameters)
-                    children.Add(parameter);
-        }
-        public void SetBlock(BlockStatement _blockStatement)
-        {
-            blockStatement = _blockStatement;
-            children.Add(_blockStatement);
+            children.Add(identifier);
+            if (parameters != null)
+                children.AddRange(parameters);
+            children.Add(blockStatement);
         }
 
+        public override void Accept(IVisitor visitor)
+        {
+            visitor.Visit(this);
+        }
     }
 }

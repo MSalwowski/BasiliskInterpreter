@@ -1,23 +1,24 @@
-﻿using System.Collections.Generic;
+﻿using BasiliskLang.Interpreter;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BasiliskLang
 {
     public class ProgramRoot : Node
     {
-        public List<Definition> definitions;
-        public List<Statement> statements;
-        public ProgramRoot() : base(NodeType.ProgramRoot) { }
-        public void SetDefinitions(List<Definition> _definitions)
+        // tuple in key of dictionary holds information about function name and number of parameters
+        // this approach enables us to define multiple functions with the same name, but different numbers of parameters
+        public Dictionary<(string,int), Definition> functionsDefinitions;
+        public List<Statement> Statements => children.Cast<Statement>().ToList();
+        public ProgramRoot(Dictionary<(string, int), Definition> _functionsDefinitions, List<Statement> _statements) : base(NodeType.ProgramRoot) 
         {
-            definitions = _definitions;
-            foreach (var definition in _definitions)
-                children.Add(definition);
+            functionsDefinitions = _functionsDefinitions;
+            if(_statements != null)
+                children.AddRange(_statements);
         }
-        public void SetStatements(List<Statement> _statements)
+        public override void Accept(IVisitor visitor)
         {
-            statements = _statements;
-            foreach (var statement in _statements)
-                children.Add(statement);
+            visitor.Visit(this);
         }
     }
 }

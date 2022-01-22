@@ -37,8 +37,6 @@ namespace BasiliskLang.Tokens
         Double,
         String,
         Bool,
-        DateTime,
-        Period,
         Identifier,
         Invalid,
         #endregion
@@ -47,8 +45,7 @@ namespace BasiliskLang.Tokens
         Else,
         While,
         Define,
-        Return,
-        Print
+        Return
         #endregion
     }
     public class Token : IEquatable<Token>

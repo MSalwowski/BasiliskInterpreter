@@ -577,7 +577,7 @@ namespace Tests
         {
             #region tree-setup
             Assignable expectedAssignable = new Assignable(new Identifier(new WritableToken(TokenType.Identifier)));
-            Call expectedCall = new Call();
+            FunctionCallStatement expectedCall = new Call();
             expectedCall.SetAssignable(expectedAssignable);
             ProgramRoot expectedRoot = new ProgramRoot();
             expectedRoot.SetStatements(new List<Statement>() { expectedCall });
@@ -610,7 +610,7 @@ namespace Tests
             additiveExpression.SetLeft(multiplicativeExpression);
             relationExpression.SetLeft(additiveExpression);
             logicExpression.SetLeft(relationExpression);
-            Call expectedCall = new Call();
+            FunctionCallStatement expectedCall = new Call();
             expectedCall.SetAssignable(expectedAssignable);
             expectedCall.SetArguments(new List<Expression>() { logicExpression, logicExpression });
             ProgramRoot expectedRoot = new ProgramRoot();
@@ -842,7 +842,7 @@ namespace Tests
             Assignable expectedAssignable = new Assignable(new Identifier(new WritableToken(TokenType.Identifier)));
             Assignable expectedAssignableWithComponent = new Assignable(new Identifier(new WritableToken(TokenType.Identifier)));
             expectedAssignableWithComponent.AddIdentifier(new Identifier(new WritableToken(TokenType.Identifier)));
-            Call expectedCall = new Call();
+            FunctionCallStatement expectedCall = new Call();
             expectedCall.SetAssignable(expectedAssignableWithComponent);
             #endregion
             #region input-setup
@@ -876,12 +876,12 @@ namespace Tests
             Parser parser = new Parser(scanner.Object);
             scanner.Object.NextToken(); // to set scanner.current to first token
 
-            Assert.AreEqual(expectedIntValue, parser.ParseSimpleExpression());
-            Assert.AreEqual(expectedDoubleValue, parser.ParseSimpleExpression());
-            Assert.AreEqual(expectedStringValue, parser.ParseSimpleExpression());
-            Assert.AreEqual(expectedAssignable, parser.ParseSimpleExpression());
-            Assert.AreEqual(expectedAssignableWithComponent, parser.ParseSimpleExpression());
-            Assert.AreEqual(expectedCall, parser.ParseSimpleExpression());
+            Assert.AreEqual(expectedIntValue, parser.ParseValueExpression());
+            Assert.AreEqual(expectedDoubleValue, parser.ParseValueExpression());
+            Assert.AreEqual(expectedStringValue, parser.ParseValueExpression());
+            Assert.AreEqual(expectedAssignable, parser.ParseValueExpression());
+            Assert.AreEqual(expectedAssignableWithComponent, parser.ParseValueExpression());
+            Assert.AreEqual(expectedCall, parser.ParseValueExpression());
         }
     }
 }

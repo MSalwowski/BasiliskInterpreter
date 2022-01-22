@@ -1,25 +1,14 @@
-﻿using BasiliskLang.Tokens;
+﻿using BasiliskLang.Interpreter;
+using BasiliskLang.Tokens;
 
 namespace BasiliskLang
 {
-    public class RelationExpression : Expression
+    public class RelationExpression : ComplexExpression
     {
         public enum Operation { Equal, NotEqual, Greater, GreaterEqual, Less, LessEqual }
-        public AdditiveExpression left;
-        public AdditiveExpression right;
         public Operation operation;
-        public RelationExpression() : base(NodeType.RelationExpression) { }
-        public void SetLeft(AdditiveExpression expression)
-        {
-            left = expression;
-            children.Add(expression);
-        }
-        public void SetRight(AdditiveExpression expression)
-        {
-            right = expression;
-            children.Add(expression);
-        }
-        public void SetOperation(TokenType type)
+        public RelationExpression(Expression _left, Expression _right, TokenType _operation) : base(NodeType.RelationExpression, _left, _right, _operation) { } 
+        public override void SetOperation(TokenType type)
         {
             if (type == TokenType.Equal)
                 operation = Operation.Equal;
@@ -33,6 +22,10 @@ namespace BasiliskLang
                 operation = Operation.Less;
             if (type == TokenType.LessEqual)
                 operation = Operation.LessEqual;
+        }
+        public override void Accept(IVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 }

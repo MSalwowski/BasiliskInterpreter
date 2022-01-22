@@ -1,9 +1,10 @@
-﻿using System;
+﻿using BasiliskLang.Interpreter;
+using System;
 using System.Collections.Generic;
 
 namespace BasiliskLang
 {
-    public abstract class Node : IEquatable<Node> {
+    public abstract class Node : IEquatable<Node>, IVisitable {
         public NodeType type;
         public List<Node> children;
 
@@ -12,6 +13,8 @@ namespace BasiliskLang
             type = _type;
             children = new List<Node>();
         }
+
+        public abstract void Accept(IVisitor visitor);
 
         public bool Equals(Node other)
         {

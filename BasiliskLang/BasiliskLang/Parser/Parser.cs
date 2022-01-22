@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using BasiliskLang.Helpers;
 using BasiliskLang.Tokens;
 
 namespace BasiliskLang
@@ -10,9 +11,11 @@ namespace BasiliskLang
     public class Parser
     {
         IScanner scanner;
-        public Parser(IScanner _scanner)
+        IErrorHandler errorHandler;
+        public Parser(IScanner _scanner, IErrorHandler _errorHandler)
         {
             scanner = _scanner;
+            errorHandler = _errorHandler;
         }
         public ProgramRoot Parse()
         {
@@ -26,10 +29,11 @@ namespace BasiliskLang
                 return false;
             return true;
         }
-        public void AssertTokenTypeOrRaiseError(string message, params TokenType[] shouldBe)
+        public void AssertTokenTypeOrRaiseError(string message, bool shouldThrow, params TokenType[] shouldBe)
         {
             if (!shouldBe.Contains(scanner.currentToken.type))
-                throw new ParseException(message, scanner.currentToken.lineNumber, scanner.currentToken.position);
+                errorHandler.Error(message, scanner.currentToken.lineNumber, scanner.currentToken.position, shouldThrow);
+                
         }
         public bool AssertNode(Node node)
         {
@@ -37,63 +41,62 @@ namespace BasiliskLang
                 return false;
             return true;
         }
-        public void AssertNodeOrRaiseError(string message, Node node)
+        public void AssertNodeOrRaiseError(string message, bool shouldThrow, Node node)
         {
             if(node == null)
-                throw new ParseException(message, scanner.currentToken.lineNumber, scanner.currentToken.position);
+                errorHandler.Error(message, scanner.currentToken.lineNumber, scanner.currentToken.position, shouldThrow);
+        }
+        public void AssertAtLeastOneNodeOrRaiseError(string message, IEnumerable<Node> nodes)
+        {
+            if (!nodes.Any())
+                errorHandler.Error(message, scanner.currentToken.lineNumber, scanner.currentToken.position, true);
         }
         #endregion
         #region grammar
         // program     				=   definitions, statements;
         public ProgramRoot ParseProgram()
         {
-            ProgramRoot programRoot = new ProgramRoot();
-            List<Definition> definitions = ParseDefinitions();
-            programRoot.SetDefinitions(definitions);
+            Dictionary<(string,int),Definition> functionsDefinitions = ParseDefinitions();
             List<Statement> statements = ParseStatements();
-            programRoot.SetStatements(statements);
-            return programRoot;
+            return new ProgramRoot(functionsDefinitions, statements);
         }
         // definitions 				=   definition, {definition};
-        public List<Definition> ParseDefinitions()
+        public Dictionary<(string, int), Definition> ParseDefinitions()
         {
             scanner.NextToken();
-            List<Definition> definitions = new List<Definition>();
-            Definition definition = ParseDefinition();
-            while (definition != null)
+            Dictionary<(string, int), Definition> functionDefinitions = new Dictionary<(string, int), Definition>();
+            Definition functionDefinition = ParseDefinition();
+            while (functionDefinition != null)
             {
-                definitions.Add(definition);
+                functionDefinitions.Add((functionDefinition.Identifier.Name, functionDefinition.Parameters == null ? 0 : functionDefinition.Parameters.Count()), functionDefinition);
                 scanner.NextToken();
-                definition = ParseDefinition();
+                functionDefinition = ParseDefinition();
             }
-            return definitions;
+            return functionDefinitions;
         }
         // definition  				=   "def", identifier, '(', parameters, ')', ':', block;
         public Definition ParseDefinition()
         {
-            Definition definition = new Definition();
-
             if (!AssertTokenType(TokenType.Define))
                 return null;
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected identifier", TokenType.Identifier);
-            definition.SetIdentifier(new Identifier(scanner.currentToken));
+            AssertTokenTypeOrRaiseError("Expected identifier", true, TokenType.Identifier);
+            Identifier identifier = new Identifier(scanner.currentToken.value);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected left paranthesis", TokenType.LeftParanthesis);
+            AssertTokenTypeOrRaiseError("Expected left paranthesis", false, TokenType.LeftParanthesis);
 
             scanner.NextToken();
             List<Assignable> parameters = ParseParameters();
-            definition.SetParameters(parameters);
-            //albo tu sprawdzic: jak cos przeszedl dalej to juz nie idz
+
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", TokenType.Colon);
+            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
 
             scanner.NextToken();
             BlockStatement blockStatement = ParseBlockStatement();
-            //AssertNodeOrRaiseError("Expected block statement", blockStatement); - to niepotrzebne bo sprawdzam w blocku
-            definition.SetBlock(blockStatement);
+
+            Definition definition = new Definition(identifier, parameters, blockStatement);
             return definition;
         }
         // parameters  				=   [assignable, {',', assignable}];
@@ -101,6 +104,7 @@ namespace BasiliskLang
         {
             List<Assignable> parameters = new List<Assignable>();
             Assignable parameter = ParseAssignable();
+
             if (!AssertNode(parameter))
                 return null;
             parameters.Add(parameter);
@@ -108,7 +112,7 @@ namespace BasiliskLang
             {
                 scanner.NextToken();
                 parameter = ParseAssignable();
-                AssertNodeOrRaiseError("Expected parameter", parameter);
+                AssertNodeOrRaiseError("Expected parameter", true, parameter);
                 parameters.Add(parameter);
             }
             // if parameter == null na samym poczatku to moze nextToken?
@@ -122,21 +126,22 @@ namespace BasiliskLang
                 return null;
             Assignable assignable = new Assignable(identifier);
             scanner.NextToken();
-            while (AssertTokenType(TokenType.Dot))
+            if (AssertTokenType(TokenType.Dot))
             {
                 scanner.NextToken();
-                identifier = ParseIdentifier();
-                AssertNodeOrRaiseError("Expected identifier", identifier);
-                assignable.AddIdentifier(identifier);
+                Identifier property = ParseIdentifier();
+                AssertNodeOrRaiseError("Expected identifier", true, property);
                 scanner.NextToken();
+                return new Assignable(identifier, property);
             }
-            return assignable;
+            else
+                return new Assignable(identifier);
         }
         // identifier
         public Identifier ParseIdentifier()
         {
             if(AssertTokenType(TokenType.Identifier))
-                return new Identifier(scanner.currentToken);
+                return new Identifier(scanner.currentToken.value);
             return null;
         }
         // statements					=   [statement, {statement}];
@@ -147,7 +152,6 @@ namespace BasiliskLang
             while (statement != null)
             {
                 statements.Add(statement);
-                //scanner.NextToken();
                 statement = ParseStatement();
             }
             return statements;
@@ -155,20 +159,17 @@ namespace BasiliskLang
         // block       				=   '{', statements, '}';
         public BlockStatement ParseBlockStatement()
         {
-            BlockStatement blockStatement = new BlockStatement();
-            AssertTokenTypeOrRaiseError("Expected left curly bracket", TokenType.LeftCurlyBracket);
+            AssertTokenTypeOrRaiseError("Expected left curly bracket", false, TokenType.LeftCurlyBracket);
             scanner.NextToken();
             List<Statement> statements = ParseStatements();
-            blockStatement.SetStatements(statements);  
-            //scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected right curly bracket", TokenType.RightCurlyBracket);
-            return blockStatement;
+            AssertAtLeastOneNodeOrRaiseError("Expected at least one statement in block statement", statements);
+            AssertTokenTypeOrRaiseError("Expected right curly bracket", false, TokenType.RightCurlyBracket);
+            return new BlockStatement(statements);
         }
         // statement 				=	if_statement
         //                              while_statement
         //                              return_statement
-        //                              assign_statement    - both starts with assignable, so quick production check
-        //                              call;               -
+        //                              assignable, assignable_statement;
         public Statement ParseStatement()
         {
             Statement statement = ParseIfStatement();
@@ -180,138 +181,125 @@ namespace BasiliskLang
             statement = ParseReturnStatement();
             if (AssertNode(statement))
                 return statement;
-            Assignable assignable = ParseAssignable();
-            if(AssertNode(assignable))
-            {
-                // no scanner.nextToken() because if we created assignable we have already moved scanner
-                if (AssertTokenType(TokenType.Assign))
-                    return ParseAssignStatement(assignable);
-                if (AssertTokenType(TokenType.LeftParanthesis))
-                    return ParseCallStatement(assignable);
-            }
+            statement = ParseAssignableStatement();
+            if (AssertNode(statement))
+                return statement;
             return null;
         }
+        // assignable_statement     =   assign_statement
+        //                              call;
+        public Statement ParseAssignableStatement()
+        {
+            Assignable assignable = ParseAssignable();
+            if (!AssertNode(assignable))
+                return null;
+            Statement statement = ParseAssignStatement(assignable);
+            if (AssertNode(statement))
+                return statement;
+            statement = ParseFunctionCallStatement(assignable);
+            AssertNodeOrRaiseError("Expected function call or assignement statement", true, statement);
+            return statement;
+
+        }
+
         // if_statement    			=   "if", '(', expression, ')', ':', block, ["else", ':', block];
         public IfStatement ParseIfStatement()
         {
-            IfStatement ifStatement = new IfStatement();
             if (!AssertTokenType(TokenType.If))
                 return null;
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected left paranthesis", TokenType.LeftParanthesis);
+            AssertTokenTypeOrRaiseError("Expected left paranthesis", false, TokenType.LeftParanthesis);
 
             scanner.NextToken();
             Expression condition = ParseExpression();
-            AssertNodeOrRaiseError("Expected condition", condition);
-            ifStatement.SetCondition(condition);
-            // care: it was changed, may be wrong
-            //scanner.NextToken();
-            // we expect ')' to be current
-            AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
+            AssertNodeOrRaiseError("Expected condition", true, condition);
+
+            AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", TokenType.Colon);
+            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
 
             scanner.NextToken();
             BlockStatement trueStatement = ParseBlockStatement();
-            AssertNodeOrRaiseError("Expected statement", trueStatement);
-            ifStatement.SetTrueBlockStatement(trueStatement);
+            AssertNodeOrRaiseError("Expected at least one statement", true, trueStatement);
 
             scanner.NextToken();
             if (!AssertTokenType(TokenType.Else))
-                return ifStatement;
+                return new IfStatement(condition, trueStatement);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", TokenType.Colon);
+            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
 
             scanner.NextToken();
             BlockStatement falseStatement = ParseBlockStatement();
-            ifStatement.SetFalseBlockStatement(falseStatement);
-            return ifStatement;
+            return new IfStatement(condition, trueStatement, falseStatement);
         }
         // while_statement 			=   "while", '(', expression, ')', block;
         public WhileStatement ParseWhileStatement()
         {
-            WhileStatement whileStatement = new WhileStatement();
             if (!AssertTokenType(TokenType.While))
                 return null;
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected left paranthesis", TokenType.LeftParanthesis);
+            AssertTokenTypeOrRaiseError("Expected left paranthesis", false, TokenType.LeftParanthesis);
 
             scanner.NextToken();
             Expression condition = ParseExpression();
-            AssertNodeOrRaiseError("Expected condition", condition);
-            whileStatement.SetCondition(condition);
+            AssertNodeOrRaiseError("Expected condition", true, condition);
             
-            //scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
+            AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", TokenType.Colon);
+            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
 
             scanner.NextToken();
             BlockStatement blockStatement = ParseBlockStatement();
-            whileStatement.SetBlockStatement(blockStatement);
-            return whileStatement;
+            return new WhileStatement(condition, blockStatement);
         }
         // return_statement			=	"return", expression;
         public ReturnStatement ParseReturnStatement()
         {
-            ReturnStatement returnStatement = new ReturnStatement();
             if (!AssertTokenType(TokenType.Return))
                 return null;
-
             scanner.NextToken();
             Expression expression = ParseExpression();
-            if(AssertNode(expression))
-                returnStatement.SetExpression(expression);
-            //AssertNodeOrRaiseError("Expected expression", expression);
-            //returnStatement.SetExpression(expression);
-            return returnStatement;
+            return new ReturnStatement(expression);
         }
         // assign_statement			=   assignable, assign_operator, expression;
         public AssignStatement ParseAssignStatement(Assignable assignable) 
         {
-            AssignStatement assignStatement = new AssignStatement();
-            assignStatement.SetLeft(assignable);
-
-            scanner.NextToken(); // because we know, that current was '='
+            if (!AssertTokenType(TokenType.Assign))
+                return null;
+            scanner.NextToken();
             Expression expression = ParseExpression();
-            AssertNodeOrRaiseError("Expected expression", expression);
-            assignStatement.SetRight(expression);
-            return assignStatement;
+            AssertNodeOrRaiseError("Expected expression", true, expression);
+            return new AssignStatement(assignable, expression);
         }
         // call        				=   assignable, '(', [arguments], ')';
-        public Call ParseCallStatement(Assignable assignable) 
+        public FunctionCallStatement ParseFunctionCallStatement(Assignable assignable) 
         {
-            Call call = new Call();
-            call.SetAssignable(assignable);
-
-            scanner.NextToken(); // because we know that current was '('
+            if (!AssertTokenType(TokenType.LeftParanthesis))
+                return null;
+            scanner.NextToken();
             List<Expression> arguments = ParseArguments();
-            // check if there are any arguments
-            if(AssertNode(arguments?[0]))
-                call.SetArguments(arguments);
-            AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
-            // maybe move? its last token in line (perhaps)
-            return call;
+            AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
+            scanner.NextToken();
+            return new FunctionCallStatement(assignable, arguments);
         }
         // arguments   				=   expression, {',', expression};
         public List<Expression> ParseArguments()
         {
-            List<Expression> arguments = new List<Expression>();
             Expression argument = ParseExpression();
             if (!AssertNode(argument))
                 return null;
+            List<Expression> arguments = new List<Expression>();
             arguments.Add(argument);
             while (AssertTokenType(TokenType.Comma))
             {
-                //consume comma
                 scanner.NextToken();
                 argument = ParseExpression();
-                AssertNodeOrRaiseError("Expected argument", argument);
+                AssertNodeOrRaiseError("Expected argument", true, argument);
                 arguments.Add(argument);
             }
             return arguments;
@@ -322,141 +310,150 @@ namespace BasiliskLang
             return ParseLogicExpression();
         }
         // logic_expression	    	=   relation_expression, {logic_operator, relation_expression};
-        public LogicExpression ParseLogicExpression()
+        public Expression ParseLogicExpression()
         {
-            LogicExpression logicExpression = new LogicExpression();
-            RelationExpression leftExpression = ParseRelationExpression();
+            Expression leftExpression = ParseRelationExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            logicExpression.SetLeft(leftExpression);
-            // zakładam, że dostajemy już następny token
             if (AssertTokenType(TokenType.And, TokenType.Or))
             {
-                logicExpression.SetOperation(scanner.currentToken.type);
+                TokenType operation = scanner.currentToken.type;
                 scanner.NextToken();
-                RelationExpression rightExpression = ParseRelationExpression();
-                AssertNodeOrRaiseError("Expected expression", rightExpression);
-                logicExpression.SetRight(rightExpression);
+                Expression rightExpression = ParseRelationExpression();
+                AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+                return new LogicExpression(leftExpression, rightExpression, operation);
             }
-            return logicExpression;
+            else
+                return leftExpression;
         }
         // relation_expression     	=   additive_expression, {relation_operator, additive_expression};
-        public RelationExpression ParseRelationExpression()
+        public Expression ParseRelationExpression()
         {
-            RelationExpression relationExpression = new RelationExpression();
-            AdditiveExpression leftExpression = ParseAdditiveExpression();
+            Expression leftExpression = ParseAdditiveExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            relationExpression.SetLeft(leftExpression);
-            // zakładam, że dostajemy już następny token
             if (AssertTokenType(TokenType.Equal, TokenType.NotEqual, TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
             {
-                relationExpression.SetOperation(scanner.currentToken.type);
+                TokenType operation = scanner.currentToken.type;
                 scanner.NextToken();
-                AdditiveExpression rightExpression = ParseAdditiveExpression();
-                AssertNodeOrRaiseError("Expected expression", rightExpression);
-                relationExpression.SetRight(rightExpression);
+                Expression rightExpression = ParseAdditiveExpression();
+                AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+                return new RelationExpression(leftExpression, rightExpression, operation);
             }
-            return relationExpression;
+            else
+                return leftExpression;
+            
         }
         // additive_expression	    =   multiplicative_expression, {additive_operator, multiplicative_expression};
-        public AdditiveExpression ParseAdditiveExpression()
+        public Expression ParseAdditiveExpression()
         {
-            AdditiveExpression additiveExpression = new AdditiveExpression();
-            MultiplicativeExpression leftExpression = ParseMultiplicativeExpression();
+            Expression leftExpression = ParseMultiplicativeExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            additiveExpression.SetLeft(leftExpression);
-            // zakładam, że dostajemy już następny token
-            if(AssertTokenType(TokenType.Plus, TokenType.Minus))
+            if (AssertTokenType(TokenType.Plus, TokenType.Minus))
             {
-                additiveExpression.SetOperation(scanner.currentToken.type);
+                TokenType operation = scanner.currentToken.type;
                 scanner.NextToken();
-                MultiplicativeExpression rightExpression = ParseMultiplicativeExpression();
-                AssertNodeOrRaiseError("Expected expression", rightExpression);
-                additiveExpression.SetRight(rightExpression);
+                Expression rightExpression = ParseMultiplicativeExpression();
+                AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+                return new AdditiveExpression(leftExpression, rightExpression, operation);
             }
-            return additiveExpression;
+            else
+                return leftExpression;
+            
         }
         // multiplicative_expression=   unary_expression, { multiplicative_operator, unary_expression};
-        public MultiplicativeExpression ParseMultiplicativeExpression()
+        public Expression ParseMultiplicativeExpression()
         {
-            MultiplicativeExpression multiplicativeExpression = new MultiplicativeExpression();
-            UnaryExpression leftExpression = ParseUnaryExpression();
+            Expression leftExpression = ParseUnaryExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            multiplicativeExpression.SetLeft(leftExpression);
-            // zakładam, że dostajemy już następny token
-            //AssertTokenType(new List<TokenType>() { TokenType.And, TokenType.Or });
             if (AssertTokenType(TokenType.Multiply, TokenType.Divide))
             {
-                multiplicativeExpression.SetOperation(scanner.currentToken.type);
+                TokenType operation = scanner.currentToken.type;
                 scanner.NextToken();
-                UnaryExpression rightExpression = ParseUnaryExpression();
-                AssertNodeOrRaiseError("Expected expression", rightExpression);
-                multiplicativeExpression.SetRight(rightExpression);
+                Expression rightExpression = ParseUnaryExpression();
+                AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+                return new MultiplicativeExpression(leftExpression, rightExpression, operation);
             }
-            return multiplicativeExpression;
+            else
+                return leftExpression;
         }
         // unary_expression	    	=   ["-"], simple_expression;
-        public UnaryExpression ParseUnaryExpression()
+        public Expression ParseUnaryExpression()
         {
-            UnaryExpression unaryExpression = new UnaryExpression();
+            //UnaryExpression unaryExpression = new UnaryExpression();
             if (AssertTokenType(TokenType.Minus))
             {
-                unaryExpression.SetNegation();
                 scanner.NextToken();
+                Expression expression = ParseValueExpression();
+                AssertNodeOrRaiseError("Expected expression", true, expression);
+                return new UnaryExpression(expression);
             }
-            SimpleExpression expression = ParseSimpleExpression();
-            if (!AssertNode(expression))
-                return null;
-            if (unaryExpression.isNegated)
-                AssertNodeOrRaiseError("Expected expression", expression);
-            unaryExpression.SetExpression(expression);
-            return unaryExpression;
+            else
+                return ParseValueExpression();
         }
         //simple_expression  		=	int
         //                              double
         //                              string
+        //                              grouped_expression
+        //                              function_call_expression
         //                              assignable
-        //                              call;
-        //                              '(', expression, ')'
-        public SimpleExpression ParseSimpleExpression()
+        public Expression ParseValueExpression()
         {
-            SimpleExpression simpleExpression;
-            simpleExpression = ParseInt();
-            if (AssertNode(simpleExpression))
-                return simpleExpression;
-            simpleExpression = ParseDouble();
-            if (AssertNode(simpleExpression))
-                return simpleExpression;
-            simpleExpression = ParseString();
-            if (AssertNode(simpleExpression))
-                return simpleExpression;
-            simpleExpression = ParseBool();
-            if (AssertNode(simpleExpression))
-                return simpleExpression;
-            simpleExpression = ParseAssignable();
-            if (AssertNode(simpleExpression))
-            {
-                if(AssertTokenType(TokenType.LeftParanthesis))
-                    simpleExpression = ParseCallStatement(simpleExpression as Assignable);
-                return simpleExpression;
-            }
-            if(AssertTokenType(TokenType.LeftParanthesis))
-            {
-                scanner.NextToken();
-                Expression expression = ParseExpression();
-                AssertNodeOrRaiseError("Expected expression", expression);
-                simpleExpression = new GroupedExpression();
-                (simpleExpression as GroupedExpression).SetExpression(expression);
-                AssertTokenTypeOrRaiseError("Expected right paranthesis", TokenType.RightParanthesis);
-                scanner.NextToken();
-                return simpleExpression;
-            }
+            Expression expression;
+            expression = ParseInt();
+            if (AssertNode(expression))
+                return expression;
+            expression = ParseDouble();
+            if (AssertNode(expression))
+                return expression;
+            expression = ParseString();
+            if (AssertNode(expression))
+                return expression;
+            expression = ParseBool();
+            if (AssertNode(expression))
+                return expression;
+            expression = ParseAssignableExpression();
+            if (AssertNode(expression))
+                return expression;
+            expression = ParseGroupedExpression();
+            if (AssertNode(expression))
+                return expression;
             return null; // we havent find any expression - pass empty one
         }
-        // int
+        public Expression ParseAssignableExpression()
+        {
+            Assignable assignable = ParseAssignable();
+            if (!AssertNode(assignable))
+                return null;
+            Expression expression = ParseFunctionCallExpression(assignable);
+            if (AssertNode(expression))
+                return expression;
+            return assignable;
+        }
+        public FunctionCallExpression ParseFunctionCallExpression(Assignable assignable)
+        {
+            if (!AssertTokenType(TokenType.LeftParanthesis))
+                return null;
+            scanner.NextToken();
+            List<Expression> arguments = ParseArguments();
+            AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
+            scanner.NextToken();
+            return new FunctionCallExpression(assignable, arguments);
+        }
+        public GroupedExpression ParseGroupedExpression()
+        {
+            if (!AssertTokenType(TokenType.LeftParanthesis))
+                return null;
+            scanner.NextToken();
+            Expression expression = ParseExpression();
+            AssertNodeOrRaiseError("Expected expression", true, expression);
+            scanner.NextToken();
+            AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
+            scanner.NextToken();
+            return new GroupedExpression(expression);
+        }
         public IntValue ParseInt()
         {
             if (AssertTokenType(TokenType.Int))
@@ -468,7 +465,6 @@ namespace BasiliskLang
             else
                 return null;
         }
-        // double
         public DoubleValue ParseDouble()
         {
             if (AssertTokenType( TokenType.Double))
@@ -480,7 +476,6 @@ namespace BasiliskLang
             else
                 return null;
         }
-        // string
         public StringValue ParseString()
         {
             if (AssertTokenType(TokenType.String))
@@ -492,7 +487,6 @@ namespace BasiliskLang
             else
                 return null;
         }
-        // bool
         public BoolValue ParseBool()
         {
             if (AssertTokenType(TokenType.Bool))

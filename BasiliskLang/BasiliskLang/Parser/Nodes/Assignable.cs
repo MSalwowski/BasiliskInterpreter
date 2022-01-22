@@ -1,23 +1,21 @@
-﻿using System.Collections.Generic;
+﻿using BasiliskLang.Interpreter;
+using System.Collections.Generic;
 
 namespace BasiliskLang
 {
-    public class Assignable : SimpleExpression
+    public class Assignable : Expression
     {
-        public List<Identifier> identifiers;
-        // DISCLAIMER: one identifier or more
-        public Assignable() : base(NodeType.Assignable) { }
-        public Assignable(Identifier _identifier) : base(NodeType.Assignable) 
+        public Identifier Identifier => children[0] as Identifier;
+        public Identifier Property => children.Count > 1 ? children[1] as Identifier : null;
+        public Assignable(Identifier _identifier, Identifier _property = null) : base(NodeType.Assignable) 
         { 
-            identifiers = new List<Identifier>(); 
-            identifiers.Add(_identifier);
             children.Add(_identifier);
+            if(_property != null)
+                children.Add(_property);
         }
-
-        public void AddIdentifier(Identifier _identifier)
+        public override void Accept(IVisitor visitor)
         {
-            identifiers.Add(_identifier);
-            children.Add(_identifier);
+            visitor.Visit(this);
         }
     }
 }
