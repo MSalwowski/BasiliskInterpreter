@@ -6,13 +6,16 @@ namespace BasiliskLang
 {
     public class FunctionCallStatement : Statement
     {
-        public Assignable FunctionName => children[0] as Assignable;
-        public List<Expression> FunctionArguments => children.Count > 1 ? children.GetRange(1, children.Count - 1).Cast<Expression>().ToList(): null;
-        public FunctionCallStatement(Assignable _functionName, IEnumerable<Expression> _functionArguments) : base(NodeType.Call) 
+        private string OuterFunctionName { get; }
+        private string InnerFunctionName { get; }
+        public string FunctionName => InnerFunctionName == null ? OuterFunctionName : OuterFunctionName + "." + InnerFunctionName;
+        public List<Expression> FunctionArguments => children.Cast<Expression>().ToList();
+        public FunctionCallStatement(Assignable assignable, IEnumerable<Expression> functionArguments) : base(NodeType.Call)
         {
-            children.Add(_functionName);
-            if(_functionArguments != null)
-                children.AddRange(_functionArguments);
+            OuterFunctionName = assignable.Identifier;
+            InnerFunctionName = assignable.Property;
+            if (functionArguments != null)
+                children.AddRange(functionArguments);
         }
         public override void Accept(IVisitor visitor)
         {

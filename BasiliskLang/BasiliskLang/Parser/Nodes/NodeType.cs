@@ -6,7 +6,6 @@
         Definition,
         Statement,
         Expression,
-        Identifier,
         Assignable,
         BlockStatement,
         IfStatement,
@@ -21,7 +20,7 @@
         UnaryExpression,
         SimpleExpression,
         Int,
-        Double,
+        Float,
         String,
         Bool,
         GroupedExpression

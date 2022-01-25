@@ -28,8 +28,8 @@ namespace BasiliskLang
             tokensDefinitions.Add("-", (line, column, value) => new Token(TokenType.Minus, line, column));
             tokensDefinitions.Add("*", (line, column, value) => new Token(TokenType.Multiply, line, column));
             tokensDefinitions.Add("/", (line, column, value) => new Token(TokenType.Divide, line, column));
-            tokensDefinitions.Add("&&", (line, column, value) => new Token(TokenType.And, line, column));
-            tokensDefinitions.Add("||", (line, column, value) => new Token(TokenType.Or, line, column));
+            //tokensDefinitions.Add("&&", (line, column, value) => new Token(TokenType.And, line, column));
+            //tokensDefinitions.Add("||", (line, column, value) => new Token(TokenType.Or, line, column));
             tokensDefinitions.Add("(", (line, column, value) => new Token(TokenType.LeftParanthesis, line, column));
             tokensDefinitions.Add(")", (line, column, value) => new Token(TokenType.RightParanthesis, line, column));
             tokensDefinitions.Add("{", (line, column, value) => new Token(TokenType.LeftCurlyBracket, line, column));
@@ -48,7 +48,7 @@ namespace BasiliskLang
             #endregion
             #region types
             tokensDefinitions.Add("int", (line, column, value) => new Token(TokenType.Int, line, column, value));
-            tokensDefinitions.Add("double", (line, column, value) => new Token(TokenType.Double, line, column, value));
+            tokensDefinitions.Add("float", (line, column, value) => new Token(TokenType.Float, line, column, value));
             tokensDefinitions.Add("string", (line, column, value) => new Token(TokenType.String, line, column, value));
             tokensDefinitions.Add("bool", (line, column, value) => new Token(TokenType.Bool, line, column, value));
             tokensDefinitions.Add("identifier", (line, column, value) => new Token(TokenType.Identifier, line, column, value));
@@ -60,11 +60,15 @@ namespace BasiliskLang
             tokensDefinitions.Add("def", (line, column, value) => new Token(TokenType.Define, line, column));
             tokensDefinitions.Add("while", (line, column, value) => new Token(TokenType.While, line, column));
             tokensDefinitions.Add("return", (line, column, value) => new Token(TokenType.Return, line, column));
+            tokensDefinitions.Add("and", (line, column, value) => new Token(TokenType.And, line, column));
+            tokensDefinitions.Add("or", (line, column, value) => new Token(TokenType.Or, line, column));
             keywords.Add("if");
             keywords.Add("else");
             keywords.Add("def");
             keywords.Add("while");
             keywords.Add("return");
+            keywords.Add("and");
+            keywords.Add("or");
             #endregion
         }
 
@@ -195,7 +199,7 @@ namespace BasiliskLang
                 //        return true;
                 //    }
                 if (token.ToString().Contains('.'))
-                    currentToken = tokensDefinitions["double"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
+                    currentToken = tokensDefinitions["float"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
                 else
                     currentToken = tokensDefinitions["int"].Invoke(currentTokenLineNumber, currentTokenPosition, token.ToString());
                 return true;
@@ -205,7 +209,7 @@ namespace BasiliskLang
         public bool BuildSpecialToken() {
             StringBuilder token = new StringBuilder();
             token.Append(reader.GetCurrentChar);
-            if(tokensDefinitions.ContainsKey(token.ToString()) || reader.GetCurrentChar == '!' || reader.GetCurrentChar == '&' || reader.GetCurrentChar == '|')
+            if(tokensDefinitions.ContainsKey(token.ToString()) || reader.GetCurrentChar == '!')
             {
                 reader.Next();
                 token.Append(reader.GetCurrentChar);

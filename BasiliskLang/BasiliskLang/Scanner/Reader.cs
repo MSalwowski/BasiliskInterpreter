@@ -25,8 +25,6 @@ namespace BasiliskLang
         public TextReader streamReader;
         public int position;
         public int lineNumber;
-
-        char a = (char)0x25;
         public char GetCurrentChar => currentChar;
         public char GetPreviousChar => previousChar;
 

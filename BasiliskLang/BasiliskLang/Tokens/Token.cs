@@ -34,7 +34,7 @@ namespace BasiliskLang.Tokens
         #endregion
         #region types
         Int,
-        Double,
+        Float,
         String,
         Bool,
         Identifier,

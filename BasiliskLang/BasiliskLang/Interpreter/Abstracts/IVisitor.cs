@@ -13,8 +13,7 @@ namespace BasiliskLang.Interpreter
         void Visit(AdditiveExpression additiveExpression);
         void Visit(Assignable assignable);
         void Visit(BlockStatement blockStatement);
-        void Visit(Definition definition);
-        void Visit(Identifier identifier);
+        void Visit(FunctionDefinition definition);
         void Visit(Statement statement);
 
         void Visit(AssignStatement assignStatement);
@@ -32,9 +31,9 @@ namespace BasiliskLang.Interpreter
 
         void Visit(GroupedExpression groupedExpression);
         void Visit(FunctionCallExpression functionCallExpression);
-        void Visit(BoolValue boolValue);
-        void Visit(IntValue intValue);
-        void Visit(DoubleValue doubleValue);
-        void Visit(StringValue stringValue);
+        void Visit(BoolValueExpression boolValue);
+        void Visit(IntValueExpression intValue);
+        void Visit(FloatValueExpression floatValue);
+        void Visit(StringValueExpression stringValue);
     }
 }

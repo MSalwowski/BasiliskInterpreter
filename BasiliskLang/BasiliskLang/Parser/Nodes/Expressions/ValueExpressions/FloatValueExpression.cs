@@ -4,9 +4,9 @@ using BasiliskLang.Tokens;
 
 namespace BasiliskLang
 {
-    public class IntValue : ValueExpression<int>
+    public class FloatValueExpression : ValueExpression<float>
     {
-        public IntValue(Token _token) : base(NodeType.Int, Convert.ToInt32(_token.value)) { }
+        public FloatValueExpression(Token _token) : base(NodeType.Float, float.Parse(_token.value, System.Globalization.CultureInfo.InvariantCulture)) { }
         public override void Accept(IVisitor visitor)
         {
             visitor.Visit(this);

@@ -6,33 +6,45 @@ using System.Threading.Tasks;
 
 namespace BasiliskLang.Interpreter
 {
-    //public static class Test
-    //{
-    //    public static void Dupa() {
-    //        Node node = new Definition();
-            
-    //        IVisitor visitor = new Visitor();
-    //        node.Accept(visitor);
-    //        //visitor.Visit(node);
-    //    }
-    //}
     public class Visitor : IVisitor
     {
-        Dictionary<(string, int), Definition> definedFunctions;
-        //Dictionary<string, ValueExpression> globalScope; - ja tego nie posiadam
-        Stack<FunctionCallContext> functionCallContexts;
-
-        public void CreateNewScope() => functionCallContexts.Peek().CreateNewScope();
-        public void DeleteScope() => functionCallContexts.Peek().DeleteScope();
-        public ValueExpression GetVariableValue(string name)
+        public BuiltInFunctions SystemFunctions;
+        public Dictionary<(string, int), FunctionDefinition> DefinedFunctions;
+        public Stack<FunctionCallContext> FunctionCallContexts;
+        public Stack<Value> ValueStack;
+        public bool IsReturning;
+        public Visitor()
         {
-            var value = functionCallContexts.Peek().GetVariableValue(name);
-            if(value == null) { /* variable not defined */}
-            return value;
+            SystemFunctions = new BuiltInFunctions();
+            DefinedFunctions = new Dictionary<(string, int), FunctionDefinition>();
+            FunctionCallContexts = new Stack<FunctionCallContext>();
+            ValueStack = new Stack<Value>();
+            IsReturning = false;
+            
+        }
+        public void CreateNewScope() => FunctionCallContexts.Peek().CreateNewScope();
+        public void DeleteScope() => FunctionCallContexts.Peek().DeleteScope();
+        public Value? TryGetVariableValue(string identifier, string property) => FunctionCallContexts.Peek().TryGetVariableValue(identifier, property);
+        public void SetVariablePropertyValue(string identifier, string property, Value value) => FunctionCallContexts.Peek().SetVariablePropertyValue(identifier, property, value);
+        public void AddVariableValue(string identifier, Value value) => FunctionCallContexts.Peek().AddVariableValue(identifier, value);
+        public void ExitFunction() => FunctionCallContexts.Pop();
+        public void EnterFunction() => FunctionCallContexts.Push(new FunctionCallContext());
+        public void EvaluateComplexExpression(ComplexExpression expression)
+        {
+            expression.Left.Accept(this);
+            var leftValue = ValueStack.Pop();
+            expression.Right.Accept(this);
+            var rightValue = ValueStack.Pop();
+            var result = leftValue.Operate(expression.Operation, rightValue);
+            if (result == null) { /* something went wrong */}
+            ValueStack.Push(result);
         }
         public void Visit(ProgramRoot programRoot)
         {
-            definedFunctions = programRoot.functionsDefinitions;
+            foreach (var definition in programRoot.functionsDefinitions)
+                DefinedFunctions.Add(definition.Key, definition.Value);
+            // we create false function call context in order to initialize state for operations
+            FunctionCallContexts.Push(new FunctionCallContext());
             CreateNewScope();
             foreach (var statement in programRoot.Statements)
                 Visit(statement);
@@ -41,126 +53,198 @@ namespace BasiliskLang.Interpreter
 
         public void Visit(AdditiveExpression additiveExpression)
         {
-            throw new NotImplementedException();
+            EvaluateComplexExpression(additiveExpression);
         }
 
         public void Visit(Assignable assignable)
         {
-            throw new NotImplementedException();
+            var variableValue = TryGetVariableValue(assignable.Identifier, assignable.Property);
+            if (variableValue == null) { /* name not defined */ }
+            ValueStack.Push(variableValue);
         }
 
         public void Visit(BlockStatement blockStatement)
         {
             CreateNewScope();
             foreach (var statement in blockStatement.Statements)
+            {
                 statement.Accept(this);
+                if (IsReturning)
+                    break;
+            }
             DeleteScope();
         }
 
-        public void Visit(Definition definition)
+        public void Visit(FunctionDefinition definition)
         {
             definition.BlockStatement.Accept(this);
         }
 
-        public void Visit(Identifier identifier)
-        {
-            throw new NotImplementedException();
-        }
-
         public void Visit(AssignStatement assignStatement)
         {
-            throw new NotImplementedException();
+            assignStatement.Right.Accept(this);
+            var right = ValueStack.Pop();
+            if (assignStatement.Left.Property == null)
+                AddVariableValue(assignStatement.Left.Identifier, right);
+            else
+                SetVariablePropertyValue(assignStatement.Left.Identifier, assignStatement.Left.Property, right);
         }
-
         public void Visit(IfStatement ifStatement)
         {
             ifStatement.Condition.Accept(this);
-            bool lastResult = true; // -------------------------------- co to???
-            if (lastResult)
+            var conditionResult = ValueStack.Pop();
+            if (conditionResult.Type != ValueType.Dynamic) { /*evaluation didnt end in numeric expression*/ }
+            var conditionResultDynamic = (DynamicValue)conditionResult;
+            if ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || conditionResultDynamic.Value != 0)
                 ifStatement.TrueBlockStatement.Accept(this);
             else
-                ifStatement.FalseBlockStatement?.Accept(this);
+                ifStatement.FalseBlockStatement.Accept(this);
         }
 
         public void Visit(WhileStatement whileStatement)
         {
             whileStatement.Condition.Accept(this);
-            bool lastResult = true;//---------------------------------citio
-            while (lastResult)
+            var conditionResult = ValueStack.Pop();
+            if (conditionResult.Type != ValueType.Dynamic) { /*evaluation didnt end in numeric expression*/ }
+            var conditionResultDynamic = (DynamicValue)conditionResult;
+            while ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || conditionResultDynamic.Value != 0)
             {
                 whileStatement.BlockStatement.Accept(this);
                 whileStatement.Condition.Accept(this);
+                conditionResult = ValueStack.Pop();
+                if (conditionResult.Type != ValueType.Dynamic) { /*evaluation didnt end in numeric expression*/ }
+                conditionResultDynamic = (DynamicValue)conditionResult;
             }
-                
-
         }
 
         public void Visit(ReturnStatement returnStatement)
         {
-            throw new NotImplementedException();
+            returnStatement.Expression?.Accept(this);
+            if (FunctionCallContexts.Count <= 1)
+            { /* return outside function */}
         }
 
         public void Visit(FunctionCallStatement functionCallStatement)
         {
-            definedFunctions.TryGetValue((functionCallStatement.FunctionName.Identifier.Name, functionCallStatement.FunctionArguments.Count()), out Definition functionDefinition);
-            if(functionDefinition == null) { /* what happens if not? */}
-            functionCallContexts.Push(new FunctionCallContext());
-            functionDefinition.Accept(this);
+            var functionName = functionCallStatement.FunctionName;
+            var argumentsCount = functionCallStatement.FunctionArguments.Count;
+            if (SystemFunctions.IsDefined(functionName, argumentsCount))
+            {
+                List<Value> arguments = new List<Value>();
+                for (int i = 0; i < argumentsCount; i++)
+                {
+                    functionCallStatement.FunctionArguments[i].Accept(this);
+                    arguments.Add(ValueStack.Pop());
+                }
+                var returnValue = SystemFunctions.CallFunction(functionName, arguments);
+                if (returnValue != null)
+                    ValueStack.Push(returnValue);
+            }
+            else if(DefinedFunctions.TryGetValue((functionName, argumentsCount), out FunctionDefinition functionDefinition))
+            {
+                if (argumentsCount != functionDefinition.Parameters.Count) { /* function not defined for this number of arguments */}
+                Dictionary<string, Value> arguments = new Dictionary<string, Value>();
+                for (int i = 0; i < argumentsCount; i++)
+                {
+                    functionCallStatement.FunctionArguments[i].Accept(this);
+                    if (arguments.ContainsKey(functionDefinition.Parameters[i])) { /* duplicate argument */ }
+                    arguments.Add(functionDefinition.Parameters[i], ValueStack.Pop());
+                }
+                FunctionCallContexts.Push(new FunctionCallContext());
+                EnterFunction();
+                foreach (var argument in arguments)
+                    AddVariableValue(argument.Key, argument.Value);
+                functionDefinition.Accept(this);
+                ExitFunction();
+            }
+            else { /* function not defined */}
         }
 
         public void Visit(LogicExpression logicExpression)
         {
-            throw new NotImplementedException();
+            EvaluateComplexExpression(logicExpression);
         }
 
         public void Visit(RelationExpression relationExpression)
         {
-            throw new NotImplementedException();
+            EvaluateComplexExpression(relationExpression);
         }
 
         public void Visit(MultiplicativeExpression multiplicativeExpression)
         {
-            throw new NotImplementedException();
+            EvaluateComplexExpression(multiplicativeExpression);
         }
 
         public void Visit(UnaryExpression unaryExpression)
         {
-            throw new NotImplementedException();
+            unaryExpression.InnerExpression.Accept(this);
+            var currentValue = ValueStack.Pop();
+            var result = currentValue.Operate(unaryExpression.Operation, null);
+            if(result == null) { /* something went wrong */}
+            ValueStack.Push(result);
         }
 
         public void Visit(GroupedExpression groupedExpression)
         {
-            throw new NotImplementedException();
+            groupedExpression.InnerExpression.Accept(this);
         }
 
         public void Visit(FunctionCallExpression functionCallExpression)
         {
-            throw new NotImplementedException();
+            var functionName = functionCallExpression.FunctionName;
+            var argumentsCount = functionCallExpression.FunctionArguments.Count;
+            if (SystemFunctions.IsDefined(functionName, argumentsCount))
+            {
+                List<Value> arguments = new List<Value>();
+                for (int i = 0; i < argumentsCount; i++)
+                {
+                    functionCallExpression.FunctionArguments[i].Accept(this);
+                    arguments.Add(ValueStack.Pop());
+                }
+                var returnValue = SystemFunctions.CallFunction(functionName, arguments);
+                if (returnValue != null)
+                    ValueStack.Push(returnValue);
+            }
+            else if (DefinedFunctions.TryGetValue((functionName, argumentsCount), out FunctionDefinition functionDefinition))
+            {
+                if (argumentsCount != functionDefinition.Parameters.Count) { /* function not defined for this number of arguments */}
+                Dictionary<string, Value> arguments = new Dictionary<string, Value>();
+                for (int i = 0; i < argumentsCount; i++)
+                {
+                    functionCallExpression.FunctionArguments[i].Accept(this);
+                    if (arguments.ContainsKey(functionDefinition.Parameters[i])) { /* duplicate argument */ }
+                    arguments.Add(functionDefinition.Parameters[i], ValueStack.Pop());
+                }
+                FunctionCallContexts.Push(new FunctionCallContext());
+                EnterFunction();
+                foreach (var argument in arguments)
+                    AddVariableValue(argument.Key, argument.Value);
+                functionDefinition.Accept(this);
+                ExitFunction();
+            }
+            else { /* function not defined */}
         }
 
-        public void Visit(BoolValue boolValue)
-        {
-            throw new NotImplementedException();
-        }
+        public void Visit(BoolValueExpression boolValue) => ValueStack.Push(new DynamicValue(boolValue.value));
 
-        public void Visit(IntValue intValue)
-        {
-            throw new NotImplementedException();
-        }
+        public void Visit(IntValueExpression intValue) => ValueStack.Push(new DynamicValue(intValue.value));
 
-        public void Visit(DoubleValue doubleValue)
-        {
-            throw new NotImplementedException();
-        }
+        public void Visit(FloatValueExpression floatValue) => ValueStack.Push(new DynamicValue(floatValue.value));
 
-        public void Visit(StringValue stringValue)
-        {
-            throw new NotImplementedException();
-        }
+        public void Visit(StringValueExpression stringValue) => ValueStack.Push(new StringValue(stringValue.value));
 
         public void Visit(Statement statement)
         {
-            throw new NotImplementedException();
+            if (statement is AssignStatement)
+                (statement as AssignStatement).Accept(this);
+            else if (statement is FunctionCallStatement)
+                (statement as FunctionCallStatement).Accept(this);
+            else if (statement is IfStatement)
+                (statement as IfStatement).Accept(this);
+            else if (statement is WhileStatement)
+                (statement as WhileStatement).Accept(this);
+            else if (statement is ReturnStatement)
+                (statement as ReturnStatement).Accept(this);
         }
     }
 }

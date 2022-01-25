@@ -12,7 +12,6 @@ namespace BasiliskLang
         {
             if(_statements != null)
                 children.AddRange(_statements);
-            
         }
         public override void Accept(IVisitor visitor)
         {

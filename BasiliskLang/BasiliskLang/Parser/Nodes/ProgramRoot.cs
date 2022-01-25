@@ -8,9 +8,9 @@ namespace BasiliskLang
     {
         // tuple in key of dictionary holds information about function name and number of parameters
         // this approach enables us to define multiple functions with the same name, but different numbers of parameters
-        public Dictionary<(string,int), Definition> functionsDefinitions;
+        public Dictionary<(string,int), FunctionDefinition> functionsDefinitions;
         public List<Statement> Statements => children.Cast<Statement>().ToList();
-        public ProgramRoot(Dictionary<(string, int), Definition> _functionsDefinitions, List<Statement> _statements) : base(NodeType.ProgramRoot) 
+        public ProgramRoot(Dictionary<(string, int), FunctionDefinition> _functionsDefinitions, List<Statement> _statements) : base(NodeType.ProgramRoot) 
         {
             functionsDefinitions = _functionsDefinitions;
             if(_statements != null)

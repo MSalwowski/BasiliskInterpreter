@@ -5,7 +5,11 @@ namespace BasiliskLang
 {
     public class UnaryExpression : SimpleExpression
     {
-        public UnaryExpression(Expression _expression) : base(NodeType.UnaryExpression, _expression) { }
+        public OperatorType Operation;
+        public UnaryExpression(Expression _expression) : base(NodeType.UnaryExpression, _expression) 
+        {
+            Operation = OperatorType.Negate;
+        }
         public override void Accept(IVisitor visitor)
         {
             visitor.Visit(this);

@@ -18,7 +18,7 @@ namespace Tests
             expectedTokens.Add(new Token(TokenType.While, 2, 0));
             expectedTokens.Add(new Token(TokenType.Define, 3, 0));
             expectedTokens.Add(new Token(TokenType.Return, 4, 0));
-            expectedTokens.Add(new Token(TokenType.Print, 5, 0));
+            expectedTokens.Add(new Token(TokenType.Invalid, 5, 0));
             expectedTokens.Add(new Token(TokenType.EOF, 5, 5));
 
             string input = "If\nelse\nwhile\nDef\nReturn\nPrint";
