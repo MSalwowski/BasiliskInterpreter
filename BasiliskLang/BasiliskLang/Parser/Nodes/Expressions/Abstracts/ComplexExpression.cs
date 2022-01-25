@@ -1,17 +1,28 @@
 ﻿using BasiliskLang.Tokens;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace BasiliskLang
 {
     public abstract class ComplexExpression : Expression
     {
-        public OperatorType Operation {get;}
-        public Expression Left => children[0] as Expression;
-        public Expression Right => children[1] as Expression;
-        public ComplexExpression(NodeType _type, Expression _left, Expression _right, Token token) : base(_type) 
+        //public OperatorType Operation {get;}
+        //public Expression Left => children[0] as Expression;
+        //public Expression Right => children[1] as Expression;
+
+        public List<OperatorType> Operations { get; }
+        public List<Expression> Components => children.Cast<Expression>().ToList();
+        public ComplexExpression(NodeType type, List<Expression> expressions, List<Token> tokens) : base(type) 
         {
-            children.Add(_left);
-            Operation = ConvertTokenToOperatorType(token);
-            children.Add(_right);
+            children.AddRange(expressions);
+            Operations = new List<OperatorType>();
+            foreach (var token in tokens)
+                Operations.Add(ConvertTokenToOperatorType(token));
+            if (Components.Count - 1 != Operations.Count)
+                throw new ParseException("Number of operators doesn't match number of expressions");
+            //children.Add(_left);
+            //Operation = ConvertTokenToOperatorType(token);
+            //children.Add(_right);
         }
         public OperatorType ConvertTokenToOperatorType(Token token)
         {

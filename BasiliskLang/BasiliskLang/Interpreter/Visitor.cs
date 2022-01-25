@@ -22,22 +22,39 @@ namespace BasiliskLang.Interpreter
             IsReturning = false;
             
         }
-        public void CreateNewScope() => FunctionCallContexts.Peek().CreateNewScope();
-        public void DeleteScope() => FunctionCallContexts.Peek().DeleteScope();
+        #region helpers-variablevalue
         public Value? TryGetVariableValue(string identifier, string property) => FunctionCallContexts.Peek().TryGetVariableValue(identifier, property);
         public void SetVariablePropertyValue(string identifier, string property, Value value) => FunctionCallContexts.Peek().SetVariablePropertyValue(identifier, property, value);
         public void AddVariableValue(string identifier, Value value) => FunctionCallContexts.Peek().AddVariableValue(identifier, value);
-        public void ExitFunction() => FunctionCallContexts.Pop();
-        public void EnterFunction() => FunctionCallContexts.Push(new FunctionCallContext());
+        #endregion
+        #region helpers-context
+        public void CreateNewScope() => FunctionCallContexts.Peek().CreateNewScope();
+        public void DeleteLatestScope() => FunctionCallContexts.Peek().DeleteScope();
+        public void CreateNewFunctionCallContext() => FunctionCallContexts.Push(new FunctionCallContext());
+        public void RemoveLatestFunctionCallContext() => FunctionCallContexts.Pop();
+        public void LeaveFunction()
+        {
+            DeleteLatestScope();
+            RemoveLatestFunctionCallContext();
+        }
+        public void EnterFunction()
+        {
+            CreateNewFunctionCallContext();
+            CreateNewScope();
+        }
+        #endregion
         public void EvaluateComplexExpression(ComplexExpression expression)
         {
-            expression.Left.Accept(this);
-            var leftValue = ValueStack.Pop();
-            expression.Right.Accept(this);
-            var rightValue = ValueStack.Pop();
-            var result = leftValue.Operate(expression.Operation, rightValue);
-            if (result == null) { /* something went wrong */}
-            ValueStack.Push(result);
+            expression.Components[0].Accept(this);
+            for(int i = 1; i<expression.Components.Count; i++)
+            {
+                var leftValue = ValueStack.Pop();
+                expression.Components[i].Accept(this);
+                var rightValue = ValueStack.Pop();
+                var result = leftValue.Operate(expression.Operations[i - 1], rightValue);
+                if (result == null) { /* something went wrong */}
+                ValueStack.Push(result);
+            }
         }
         public void Visit(ProgramRoot programRoot)
         {
@@ -45,10 +62,10 @@ namespace BasiliskLang.Interpreter
                 DefinedFunctions.Add(definition.Key, definition.Value);
             // we create false function call context in order to initialize state for operations
             FunctionCallContexts.Push(new FunctionCallContext());
-            CreateNewScope();
+            EnterFunction();
             foreach (var statement in programRoot.Statements)
                 Visit(statement);
-            DeleteScope();
+            LeaveFunction();
         }
 
         public void Visit(AdditiveExpression additiveExpression)
@@ -65,14 +82,14 @@ namespace BasiliskLang.Interpreter
 
         public void Visit(BlockStatement blockStatement)
         {
-            CreateNewScope();
+            //CreateNewScope();
             foreach (var statement in blockStatement.Statements)
             {
                 statement.Accept(this);
                 if (IsReturning)
                     break;
             }
-            DeleteScope();
+            //DeleteScope();
         }
 
         public void Visit(FunctionDefinition definition)
@@ -150,12 +167,11 @@ namespace BasiliskLang.Interpreter
                     if (arguments.ContainsKey(functionDefinition.Parameters[i])) { /* duplicate argument */ }
                     arguments.Add(functionDefinition.Parameters[i], ValueStack.Pop());
                 }
-                FunctionCallContexts.Push(new FunctionCallContext());
                 EnterFunction();
                 foreach (var argument in arguments)
                     AddVariableValue(argument.Key, argument.Value);
                 functionDefinition.Accept(this);
-                ExitFunction();
+                LeaveFunction();
             }
             else { /* function not defined */}
         }
@@ -215,12 +231,12 @@ namespace BasiliskLang.Interpreter
                     if (arguments.ContainsKey(functionDefinition.Parameters[i])) { /* duplicate argument */ }
                     arguments.Add(functionDefinition.Parameters[i], ValueStack.Pop());
                 }
-                FunctionCallContexts.Push(new FunctionCallContext());
                 EnterFunction();
                 foreach (var argument in arguments)
                     AddVariableValue(argument.Key, argument.Value);
                 functionDefinition.Accept(this);
-                ExitFunction();
+
+                LeaveFunction();
             }
             else { /* function not defined */}
         }

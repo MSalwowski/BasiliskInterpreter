@@ -1,1 +1,7 @@
-a = 1 + 2 + 4
+def test(a):
+{
+print(a)
+}
+a = 2
+test(a)
+print(a)

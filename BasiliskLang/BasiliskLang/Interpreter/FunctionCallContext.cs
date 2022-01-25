@@ -14,6 +14,7 @@ namespace BasiliskLang.Interpreter
         public FunctionCallContext()
         {
             scopes = new List<Dictionary<string, Value>>();
+            //scopes.Add(new Dictionary<string, Value>());
         }
 
         public Value TryGetVariableValue(string identifier, string property)
@@ -34,7 +35,6 @@ namespace BasiliskLang.Interpreter
                         return (Value)value.GetType().GetProperty(property).GetValue(value);
                     }
                 }
-                    
             }
             return null;
         }

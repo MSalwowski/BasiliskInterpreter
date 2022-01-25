@@ -309,37 +309,71 @@ namespace BasiliskLang
         // logic_expression	    	=   relation_expression, {logic_operator, relation_expression};
         public Expression ParseLogicExpression()
         {
+            //Expression leftExpression = ParseRelationExpression();
+            //if (!AssertNode(leftExpression))
+            //    return null;
+            //if (AssertTokenType(TokenType.And, TokenType.Or))
+            //{
+            //    Token operationToken = scanner.currentToken;
+            //    scanner.NextToken();
+            //    Expression rightExpression = ParseRelationExpression();
+            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+            //    return new LogicExpression(leftExpression, rightExpression, operationToken);
+            //}
+            //else
+            //    return leftExpression;
             Expression leftExpression = ParseRelationExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            if (AssertTokenType(TokenType.And, TokenType.Or))
+            if (!AssertTokenType(TokenType.And, TokenType.Or))
+                return leftExpression;
+            List<Token> operationTokens = new List<Token>();
+            List<Expression> components = new List<Expression>();
+            components.Add(leftExpression);
+            do
             {
-                Token operationToken = scanner.currentToken;
+                operationTokens.Add(scanner.currentToken);
                 scanner.NextToken();
                 Expression rightExpression = ParseRelationExpression();
                 AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-                return new LogicExpression(leftExpression, rightExpression, operationToken);
-            }
-            else
-                return leftExpression;
+                components.Add(rightExpression);
+            } while (AssertTokenType(TokenType.And, TokenType.Or));
+            return new LogicExpression(components, operationTokens);
         }
         // relation_expression     	=   additive_expression, {relation_operator, additive_expression};
         public Expression ParseRelationExpression()
         {
+            //Expression leftExpression = ParseAdditiveExpression();
+            //if (!AssertNode(leftExpression))
+            //    return null;
+            //if (AssertTokenType(TokenType.Equal, TokenType.NotEqual, TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
+            //{
+            //    Token operationToken = scanner.currentToken;
+            //    scanner.NextToken();
+            //    Expression rightExpression = ParseAdditiveExpression();
+            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+            //    return new RelationExpression(leftExpression, rightExpression, operationToken);
+            //}
+            //else
+            //    return leftExpression;
             Expression leftExpression = ParseAdditiveExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            if (AssertTokenType(TokenType.Equal, TokenType.NotEqual, TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
+            if (!AssertTokenType(TokenType.Equal, TokenType.NotEqual, TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
+                return leftExpression;
+            List<Token> operationTokens = new List<Token>();
+            List<Expression> components = new List<Expression>();
+            components.Add(leftExpression);
+            do
             {
-                Token operationToken = scanner.currentToken;
+                operationTokens.Add(scanner.currentToken);
                 scanner.NextToken();
                 Expression rightExpression = ParseAdditiveExpression();
                 AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-                return new RelationExpression(leftExpression, rightExpression, operationToken);
-            }
-            else
-                return leftExpression;
-            
+                components.Add(rightExpression);
+            } while (AssertTokenType(TokenType.Equal, TokenType.NotEqual, TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual));
+            return new RelationExpression(components, operationTokens);
+
         }
         // additive_expression	    =   multiplicative_expression, {additive_operator, multiplicative_expression};
         public Expression ParseAdditiveExpression()
@@ -347,34 +381,66 @@ namespace BasiliskLang
             Expression leftExpression = ParseMultiplicativeExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            if (AssertTokenType(TokenType.Plus, TokenType.Minus))
+            if(!AssertTokenType(TokenType.Plus, TokenType.Minus))
+                return leftExpression;
+            List<Token> operationTokens = new List<Token>();
+            List<Expression> components = new List<Expression>();
+            components.Add(leftExpression);
+            do
             {
-                Token operationToken = scanner.currentToken;
+                operationTokens.Add(scanner.currentToken);
                 scanner.NextToken();
                 Expression rightExpression = ParseMultiplicativeExpression();
                 AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-                return new AdditiveExpression(leftExpression, rightExpression, operationToken);
-            }
-            else
-                return leftExpression;
-            
+                components.Add(rightExpression);
+            } while (AssertTokenType(TokenType.Plus, TokenType.Minus));
+            return new AdditiveExpression(components, operationTokens);
+
+            //if (AssertTokenType(TokenType.Plus, TokenType.Minus))
+            //{
+            //    Token operationToken = scanner.currentToken;
+            //    scanner.NextToken();
+            //    Expression rightExpression = ParseMultiplicativeExpression();
+            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+            //    return new AdditiveExpression(leftExpression, rightExpression, operationToken);
+            //}
+            //else
+            //return leftExpression;
+
         }
         // multiplicative_expression=   unary_expression, { multiplicative_operator, unary_expression};
         public Expression ParseMultiplicativeExpression()
         {
+            //Expression leftExpression = ParseUnaryExpression();
+            //if (!AssertNode(leftExpression))
+            //    return null;
+            //if (AssertTokenType(TokenType.Multiply, TokenType.Divide))
+            //{
+            //    Token operationToken = scanner.currentToken;
+            //    scanner.NextToken();
+            //    Expression rightExpression = ParseUnaryExpression();
+            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
+            //    return new MultiplicativeExpression(leftExpression, rightExpression, operationToken);
+            //}
+            //else
+            //    return leftExpression;
             Expression leftExpression = ParseUnaryExpression();
             if (!AssertNode(leftExpression))
                 return null;
-            if (AssertTokenType(TokenType.Multiply, TokenType.Divide))
+            if (!AssertTokenType(TokenType.Multiply, TokenType.Divide))
+                return leftExpression;
+            List<Token> operationTokens = new List<Token>();
+            List<Expression> components = new List<Expression>();
+            components.Add(leftExpression);
+            do
             {
-                Token operationToken = scanner.currentToken;
+                operationTokens.Add(scanner.currentToken);
                 scanner.NextToken();
                 Expression rightExpression = ParseUnaryExpression();
                 AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-                return new MultiplicativeExpression(leftExpression, rightExpression, operationToken);
-            }
-            else
-                return leftExpression;
+                components.Add(rightExpression);
+            } while (AssertTokenType(TokenType.Multiply, TokenType.Divide));
+            return new MultiplicativeExpression(components, operationTokens);
         }
         // unary_expression	    	=   ["-"], simple_expression;
         public Expression ParseUnaryExpression()
