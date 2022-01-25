@@ -31,7 +31,7 @@ namespace BasiliskLang.Interpreter
                         if (!value.GetType().GetProperties().Select(p => p.Name).ToList().Exists(n => n == property))
                             return null;
                         var propertyValue = value.GetType().GetProperty(property).GetValue(value);
-                        // shall we cast it to exact type?
+
                         return (Value)value.GetType().GetProperty(property).GetValue(value);
                     }
                 }
