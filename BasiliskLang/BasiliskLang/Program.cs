@@ -22,7 +22,7 @@ namespace BasiliskLang
         }
         public static void Main()
         {
-            string source = Path.GetFullPath("..\\..\\..\\..\\Programs\\test.txt");
+            string source = Path.GetFullPath("..\\..\\..\\..\\Programs\\program.txt");
             IReader reader;
             using (StreamReader sr = new StreamReader(source))
             {
