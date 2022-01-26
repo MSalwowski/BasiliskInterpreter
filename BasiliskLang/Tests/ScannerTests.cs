@@ -134,7 +134,7 @@ namespace Tests
             expectedTokens.Add(new Token(TokenType.RightParanthesis, 2, 11));
             expectedTokens.Add(new Token(TokenType.Colon, 2, 12));
             expectedTokens.Add(new Token(TokenType.LeftCurlyBracket, 3, 0));
-            expectedTokens.Add(new Token(TokenType.Print, 4, 0));
+            expectedTokens.Add(new Token(TokenType.Identifier, 4, 0, "print"));
             expectedTokens.Add(new Token(TokenType.LeftParanthesis, 4, 5));
             expectedTokens.Add(new Token(TokenType.String, 4, 6, "Hit!"));
             expectedTokens.Add(new Token(TokenType.RightParanthesis, 4, 12));
@@ -160,6 +160,5 @@ namespace Tests
                 } while (scanner.currentToken.type != TokenType.EOF);
             }
         }
-        // TODO: maybe add one test for numbers
     }
 }

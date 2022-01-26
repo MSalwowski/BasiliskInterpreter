@@ -7,7 +7,6 @@ namespace BasiliskLang
     public class BlockStatement : Statement
     {
         public List<Statement> Statements => children.Cast<Statement>().ToList();
-        // DISCLAIMER: 
         public BlockStatement(List<Statement> _statements) : base(NodeType.BlockStatement)
         {
             if(_statements != null)

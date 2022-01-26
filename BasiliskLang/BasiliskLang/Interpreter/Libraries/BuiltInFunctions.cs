@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BasiliskLang.Interpreter.Values;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,10 +12,10 @@ namespace BasiliskLang.Interpreter
     public class BuiltInFunctions
     {
         internal delegate Value BuiltInFunction(List<Value> parameters);
+
         // string - function name
         // int? - number of arguments (null => any)
         // BuiltInFunction - function definition
-
         Dictionary<(string, int?), BuiltInFunction> FunctionsList { get; }
         public BuiltInFunctions()
         {
@@ -60,7 +61,7 @@ namespace BasiliskLang.Interpreter
                 case 6:
                     return new DateTimeValue(parameters[0], parameters[1], parameters[2], parameters[3], parameters[4], parameters[5]);
                 default:
-                        return null;/*throw exception - no possibility*/
+                    throw new RuntimeException("Wrong number of parameters");
             }
         }
 
@@ -79,7 +80,7 @@ namespace BasiliskLang.Interpreter
                 case 4:
                     return new PeriodValue(parameters[0], parameters[1], parameters[2], parameters[3]);
                 default:
-                    return null;/*throw exception - no possibility*/
+                    throw new RuntimeException("Wrong number of parameters");
             }
         }
 
@@ -93,7 +94,8 @@ namespace BasiliskLang.Interpreter
 
         public Value CallFunction(string name, List<Value> arguments)
         {
-            if(!FunctionsList.TryGetValue((name, arguments.Count), out var function)) { /*call to not defined built-in function*/ }
+            if(!FunctionsList.TryGetValue((name, arguments.Count), out var function))
+                throw new RuntimeException("Call to undefined built-in function");
             return function(arguments);
         }
     }

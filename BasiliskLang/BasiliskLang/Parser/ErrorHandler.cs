@@ -17,16 +17,15 @@ namespace BasiliskLang.Helpers
         public void Error(string message, int lineNumber, int position , bool shouldThrow = true)
         {
             errorsCount++;
-            PrintError(message, lineNumber, position);
             if (!shouldThrow)
-                return;
+                PrintError(message, lineNumber, position);
             else
-                throw new Exception(message);
+                throw new ParseException(message, lineNumber, position);
         }
 
         public void PrintError(string message, int lineNumber, int position)
         {
-            Console.WriteLine("ERROR::line:" + lineNumber + " position: " + position + "::" + message);
+            Console.WriteLine("WARNING::line:" + lineNumber + " position: " + position + "::" + message);
         }
     }
 }

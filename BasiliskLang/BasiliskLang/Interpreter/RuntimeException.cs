@@ -8,7 +8,7 @@ namespace BasiliskLang
             base("RUNTIME ERROR::Line: " + lineNumber + " Position: " + position + " " + message)
         { }
         public RuntimeException(string message) :
-            base("RUNTIME ERROR::Line: " + message)
+            base("RUNTIME ERROR:: " + message)
         { }
     }
 }

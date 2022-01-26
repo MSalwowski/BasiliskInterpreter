@@ -29,11 +29,14 @@ namespace BasiliskLang
                 return false;
             return true;
         }
-        public void AssertTokenTypeOrRaiseError(string message, bool shouldThrow, params TokenType[] shouldBe)
+        public bool AssertTokenTypeOrRaiseError(string message, bool shouldThrow, params TokenType[] shouldBe)
         {
             if (!shouldBe.Contains(scanner.currentToken.type))
+            {
                 errorHandler.Error(message, scanner.currentToken.lineNumber, scanner.currentToken.position, shouldThrow);
-                
+                return false;
+            }
+            return true;
         }
         public bool AssertNode(Node node)
         {
@@ -93,9 +96,9 @@ namespace BasiliskLang
             AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
+            if(AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon))
+                scanner.NextToken();
 
-            scanner.NextToken();
             BlockStatement blockStatement = ParseBlockStatement();
 
             FunctionDefinition definition = new FunctionDefinition(identifier, parameters, blockStatement);
@@ -106,7 +109,7 @@ namespace BasiliskLang
         {
             List<string> parameters = new List<string>();
             if (!AssertTokenType(TokenType.Identifier))
-                return null;
+                return parameters;
             var parameter = scanner.currentToken.value;
             parameters.Add(parameter);
             scanner.NextToken();
@@ -120,7 +123,7 @@ namespace BasiliskLang
             }
             return parameters;
         }
-        // assignable  				=   identifier, ['.', identifier]
+        // assignable  				=   identifier, ['.', identifier];
         public Assignable ParseAssignable()
         {
             if (!AssertTokenType(TokenType.Identifier))
@@ -138,6 +141,7 @@ namespace BasiliskLang
             else
                 return new Assignable(identifier);
         }
+        // statements               =   { statement };
         public List<Statement> ParseStatements()
         {
             List<Statement> statements = new List<Statement>();
@@ -152,8 +156,8 @@ namespace BasiliskLang
         // block       				=   '{', statements, '}';
         public BlockStatement ParseBlockStatement()
         {
-            AssertTokenTypeOrRaiseError("Expected left curly bracket", false, TokenType.LeftCurlyBracket);
-            scanner.NextToken();
+            if(AssertTokenTypeOrRaiseError("Expected left curly bracket", false, TokenType.LeftCurlyBracket))
+                scanner.NextToken();
             List<Statement> statements = ParseStatements();
             AssertAtLeastOneNodeOrRaiseError("Expected at least one statement in block statement", statements);
             AssertTokenTypeOrRaiseError("Expected right curly bracket", false, TokenType.RightCurlyBracket);
@@ -163,9 +167,6 @@ namespace BasiliskLang
         //                              while_statement
         //                              return_statement
         //                              assignable, assignable_statement;
-
-        // assignable = ident, [ident];
-        // 
         public Statement ParseStatement()
         {
             Statement statement = ParseIfStatement();
@@ -198,8 +199,7 @@ namespace BasiliskLang
             return statement;
 
         }
-
-        // if_statement    			=   "if", '(', expression, ')', ':', block, ["else", ':', block];
+        // if_statement    			=   "if", '(', logic_expression, ')', ':', block, ["else", ':', block];
         public IfStatement ParseIfStatement()
         {
             if (!AssertTokenType(TokenType.If))
@@ -209,15 +209,15 @@ namespace BasiliskLang
             AssertTokenTypeOrRaiseError("Expected left paranthesis", false, TokenType.LeftParanthesis);
 
             scanner.NextToken();
-            Expression condition = ParseExpression();
+            Expression condition = ParseLogicExpression();
             AssertNodeOrRaiseError("Expected condition", true, condition);
 
             AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
+            if(AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon))
+                scanner.NextToken();
 
-            scanner.NextToken();
             BlockStatement trueStatement = ParseBlockStatement();
             AssertNodeOrRaiseError("Expected at least one statement", true, trueStatement);
 
@@ -226,13 +226,13 @@ namespace BasiliskLang
                 return new IfStatement(condition, trueStatement);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
+            if(AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon))
+                scanner.NextToken();
 
-            scanner.NextToken();
             BlockStatement falseStatement = ParseBlockStatement();
             return new IfStatement(condition, trueStatement, falseStatement);
         }
-        // while_statement 			=   "while", '(', expression, ')', block;
+        // while_statement 			=   "while", '(', logic_expression, ')', block;
         public WhileStatement ParseWhileStatement()
         {
             if (!AssertTokenType(TokenType.While))
@@ -242,34 +242,35 @@ namespace BasiliskLang
             AssertTokenTypeOrRaiseError("Expected left paranthesis", false, TokenType.LeftParanthesis);
 
             scanner.NextToken();
-            Expression condition = ParseExpression();
+            Expression condition = ParseLogicExpression();
             AssertNodeOrRaiseError("Expected condition", true, condition);
             
             AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
 
             scanner.NextToken();
-            AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon);
 
-            scanner.NextToken();
+            if (AssertTokenTypeOrRaiseError("Expected colon", false, TokenType.Colon))
+                scanner.NextToken();
+
             BlockStatement blockStatement = ParseBlockStatement();
             return new WhileStatement(condition, blockStatement);
         }
-        // return_statement			=	"return", expression;
+        // return_statement			=	"return", logic_expression;
         public ReturnStatement ParseReturnStatement()
         {
             if (!AssertTokenType(TokenType.Return))
                 return null;
             scanner.NextToken();
-            Expression expression = ParseExpression();
+            Expression expression = ParseLogicExpression();
             return new ReturnStatement(expression);
         }
-        // assign_statement			=   assignable, assign_operator, expression;
+        // assign_statement			=   assignable, assign_operator, logic_expression;
         public AssignStatement ParseAssignStatement(Assignable assignable) 
         {
             if (!AssertTokenType(TokenType.Assign))
                 return null;
             scanner.NextToken();
-            Expression expression = ParseExpression();
+            Expression expression = ParseLogicExpression();
             AssertNodeOrRaiseError("Expected expression", true, expression);
             return new AssignStatement(assignable, expression);
         }
@@ -284,10 +285,10 @@ namespace BasiliskLang
             scanner.NextToken();
             return new FunctionCallStatement(assignable, arguments);
         }
-        // arguments   				=   expression, {',', expression};
+        // arguments   				=   logic_expression, {',', logic_expression};
         public List<Expression> ParseArguments()
         {
-            Expression argument = ParseExpression();
+            Expression argument = ParseLogicExpression();
             if (!AssertNode(argument))
                 return null;
             List<Expression> arguments = new List<Expression>();
@@ -295,33 +296,15 @@ namespace BasiliskLang
             while (AssertTokenType(TokenType.Comma))
             {
                 scanner.NextToken();
-                argument = ParseExpression();
+                argument = ParseLogicExpression();
                 AssertNodeOrRaiseError("Expected argument", true, argument);
                 arguments.Add(argument);
             }
             return arguments;
         }
-        // expression  				=   logic_expression;
-        public Expression ParseExpression()
-        {
-            return ParseLogicExpression();
-        }
         // logic_expression	    	=   relation_expression, {logic_operator, relation_expression};
         public Expression ParseLogicExpression()
         {
-            //Expression leftExpression = ParseRelationExpression();
-            //if (!AssertNode(leftExpression))
-            //    return null;
-            //if (AssertTokenType(TokenType.And, TokenType.Or))
-            //{
-            //    Token operationToken = scanner.currentToken;
-            //    scanner.NextToken();
-            //    Expression rightExpression = ParseRelationExpression();
-            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-            //    return new LogicExpression(leftExpression, rightExpression, operationToken);
-            //}
-            //else
-            //    return leftExpression;
             Expression leftExpression = ParseRelationExpression();
             if (!AssertNode(leftExpression))
                 return null;
@@ -343,19 +326,6 @@ namespace BasiliskLang
         // relation_expression     	=   additive_expression, {relation_operator, additive_expression};
         public Expression ParseRelationExpression()
         {
-            //Expression leftExpression = ParseAdditiveExpression();
-            //if (!AssertNode(leftExpression))
-            //    return null;
-            //if (AssertTokenType(TokenType.Equal, TokenType.NotEqual, TokenType.Greater, TokenType.GreaterEqual, TokenType.Less, TokenType.LessEqual))
-            //{
-            //    Token operationToken = scanner.currentToken;
-            //    scanner.NextToken();
-            //    Expression rightExpression = ParseAdditiveExpression();
-            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-            //    return new RelationExpression(leftExpression, rightExpression, operationToken);
-            //}
-            //else
-            //    return leftExpression;
             Expression leftExpression = ParseAdditiveExpression();
             if (!AssertNode(leftExpression))
                 return null;
@@ -395,35 +365,10 @@ namespace BasiliskLang
                 components.Add(rightExpression);
             } while (AssertTokenType(TokenType.Plus, TokenType.Minus));
             return new AdditiveExpression(components, operationTokens);
-
-            //if (AssertTokenType(TokenType.Plus, TokenType.Minus))
-            //{
-            //    Token operationToken = scanner.currentToken;
-            //    scanner.NextToken();
-            //    Expression rightExpression = ParseMultiplicativeExpression();
-            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-            //    return new AdditiveExpression(leftExpression, rightExpression, operationToken);
-            //}
-            //else
-            //return leftExpression;
-
         }
         // multiplicative_expression=   unary_expression, { multiplicative_operator, unary_expression};
         public Expression ParseMultiplicativeExpression()
         {
-            //Expression leftExpression = ParseUnaryExpression();
-            //if (!AssertNode(leftExpression))
-            //    return null;
-            //if (AssertTokenType(TokenType.Multiply, TokenType.Divide))
-            //{
-            //    Token operationToken = scanner.currentToken;
-            //    scanner.NextToken();
-            //    Expression rightExpression = ParseUnaryExpression();
-            //    AssertNodeOrRaiseError("Expected expression", true, rightExpression);
-            //    return new MultiplicativeExpression(leftExpression, rightExpression, operationToken);
-            //}
-            //else
-            //    return leftExpression;
             Expression leftExpression = ParseUnaryExpression();
             if (!AssertNode(leftExpression))
                 return null;
@@ -442,10 +387,9 @@ namespace BasiliskLang
             } while (AssertTokenType(TokenType.Multiply, TokenType.Divide));
             return new MultiplicativeExpression(components, operationTokens);
         }
-        // unary_expression	    	=   ["-"], simple_expression;
+        // unary_expression	    	=   ["-"], value_expression;
         public Expression ParseUnaryExpression()
         {
-            //UnaryExpression unaryExpression = new UnaryExpression();
             if (AssertTokenType(TokenType.Minus))
             {
                 scanner.NextToken();
@@ -456,7 +400,7 @@ namespace BasiliskLang
             else
                 return ParseValueExpression();
         }
-        //simple_expression  		=	int
+        //value_expression  		=	int
         //                              float
         //                              string
         //                              grouped_expression
@@ -483,7 +427,7 @@ namespace BasiliskLang
             expression = ParseGroupedExpression();
             if (AssertNode(expression))
                 return expression;
-            return null; // we havent find any expression - pass empty one
+            return null; 
         }
         public Expression ParseAssignableExpression()
         {
@@ -495,6 +439,7 @@ namespace BasiliskLang
                 return expression;
             return assignable;
         }
+        //function_call_expression      =   assignable, '(', [arguments], ')';
         public FunctionCallExpression ParseFunctionCallExpression(Assignable assignable)
         {
             if (!AssertTokenType(TokenType.LeftParanthesis))
@@ -510,9 +455,8 @@ namespace BasiliskLang
             if (!AssertTokenType(TokenType.LeftParanthesis))
                 return null;
             scanner.NextToken();
-            Expression expression = ParseExpression();
+            Expression expression = ParseLogicExpression();
             AssertNodeOrRaiseError("Expected expression", true, expression);
-            scanner.NextToken();
             AssertTokenTypeOrRaiseError("Expected right paranthesis", false, TokenType.RightParanthesis);
             scanner.NextToken();
             return new GroupedExpression(expression);

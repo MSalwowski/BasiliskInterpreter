@@ -1,4 +1,5 @@
-﻿using System;
+﻿using BasiliskLang.Interpreter.Values;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,15 +13,12 @@ namespace BasiliskLang.Interpreter
         public Dictionary<(string, int), FunctionDefinition> DefinedFunctions;
         public Stack<FunctionCallContext> FunctionCallContexts;
         public Stack<Value> ValueStack;
-        public bool IsReturning;
         public Visitor()
         {
             SystemFunctions = new BuiltInFunctions();
             DefinedFunctions = new Dictionary<(string, int), FunctionDefinition>();
             FunctionCallContexts = new Stack<FunctionCallContext>();
             ValueStack = new Stack<Value>();
-            IsReturning = false;
-            
         }
         #region helpers-variablevalue
         public Value? TryGetVariableValue(string identifier, string property) => FunctionCallContexts.Peek().TryGetVariableValue(identifier, property);
@@ -28,20 +26,10 @@ namespace BasiliskLang.Interpreter
         public void AddVariableValue(string identifier, Value value) => FunctionCallContexts.Peek().AddVariableValue(identifier, value);
         #endregion
         #region helpers-context
-        public void CreateNewScope() => FunctionCallContexts.Peek().CreateNewScope();
-        public void DeleteLatestScope() => FunctionCallContexts.Peek().DeleteScope();
-        public void CreateNewFunctionCallContext() => FunctionCallContexts.Push(new FunctionCallContext());
-        public void RemoveLatestFunctionCallContext() => FunctionCallContexts.Pop();
-        public void LeaveFunction()
-        {
-            DeleteLatestScope();
-            RemoveLatestFunctionCallContext();
-        }
-        public void EnterFunction()
-        {
-            CreateNewFunctionCallContext();
-            CreateNewScope();
-        }
+        public void EnterFunction() => FunctionCallContexts.Push(new FunctionCallContext());
+        public void LeaveFunction() => FunctionCallContexts.Pop();
+        public void SetReturn() => FunctionCallContexts.Peek().IsReturning = true;
+        public bool IsReturning => FunctionCallContexts.Peek().IsReturning;
         #endregion
         public void EvaluateComplexExpression(ComplexExpression expression)
         {
@@ -52,7 +40,8 @@ namespace BasiliskLang.Interpreter
                 expression.Components[i].Accept(this);
                 var rightValue = ValueStack.Pop();
                 var result = leftValue.Operate(expression.Operations[i - 1], rightValue);
-                if (result == null) { /* something went wrong */}
+                if (result == null)
+                    throw new RuntimeException("Expression evaluation ended in null result (operation not implemented)");
                 ValueStack.Push(result);
             }
         }
@@ -61,7 +50,6 @@ namespace BasiliskLang.Interpreter
             foreach (var definition in programRoot.functionsDefinitions)
                 DefinedFunctions.Add(definition.Key, definition.Value);
             // we create false function call context in order to initialize state for operations
-            FunctionCallContexts.Push(new FunctionCallContext());
             EnterFunction();
             foreach (var statement in programRoot.Statements)
                 Visit(statement);
@@ -76,20 +64,19 @@ namespace BasiliskLang.Interpreter
         public void Visit(Assignable assignable)
         {
             var variableValue = TryGetVariableValue(assignable.Identifier, assignable.Property);
-            if (variableValue == null) { /* name not defined */ }
+            if (variableValue == null)
+                throw new RuntimeException("Use of undefined variable");
             ValueStack.Push(variableValue);
         }
 
         public void Visit(BlockStatement blockStatement)
         {
-            //CreateNewScope();
             foreach (var statement in blockStatement.Statements)
             {
                 statement.Accept(this);
                 if (IsReturning)
                     break;
             }
-            //DeleteScope();
         }
 
         public void Visit(FunctionDefinition definition)
@@ -110,26 +97,29 @@ namespace BasiliskLang.Interpreter
         {
             ifStatement.Condition.Accept(this);
             var conditionResult = ValueStack.Pop();
-            if (conditionResult.Type != ValueType.Dynamic) { /*evaluation didnt end in numeric expression*/ }
+            if (conditionResult.Type != ValueType.Dynamic)
+                throw new RuntimeException("Condition evaluation didn't end in numeric expression");
             var conditionResultDynamic = (DynamicValue)conditionResult;
-            if ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || conditionResultDynamic.Value != 0)
+            if ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || (conditionResultDynamic.Value is not bool && conditionResultDynamic.Value != 0))
                 ifStatement.TrueBlockStatement.Accept(this);
             else
-                ifStatement.FalseBlockStatement.Accept(this);
+                ifStatement.FalseBlockStatement?.Accept(this);
         }
 
         public void Visit(WhileStatement whileStatement)
         {
             whileStatement.Condition.Accept(this);
             var conditionResult = ValueStack.Pop();
-            if (conditionResult.Type != ValueType.Dynamic) { /*evaluation didnt end in numeric expression*/ }
+            if (conditionResult.Type != ValueType.Dynamic)
+                throw new RuntimeException("Condition evaluation didn't end in numeric expression");
             var conditionResultDynamic = (DynamicValue)conditionResult;
-            while ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || conditionResultDynamic.Value != 0)
+            while ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || (conditionResultDynamic.Value is not bool && conditionResultDynamic.Value != 0))
             {
                 whileStatement.BlockStatement.Accept(this);
                 whileStatement.Condition.Accept(this);
                 conditionResult = ValueStack.Pop();
-                if (conditionResult.Type != ValueType.Dynamic) { /*evaluation didnt end in numeric expression*/ }
+                if (conditionResult.Type != ValueType.Dynamic)
+                    throw new RuntimeException("Condition evaluation didn't end in numeric expression");
                 conditionResultDynamic = (DynamicValue)conditionResult;
             }
         }
@@ -137,8 +127,9 @@ namespace BasiliskLang.Interpreter
         public void Visit(ReturnStatement returnStatement)
         {
             returnStatement.Expression?.Accept(this);
+            SetReturn();
             if (FunctionCallContexts.Count <= 1)
-            { /* return outside function */}
+                throw new RuntimeException("Return outside any function");
         }
 
         public void Visit(FunctionCallStatement functionCallStatement)
@@ -159,12 +150,14 @@ namespace BasiliskLang.Interpreter
             }
             else if(DefinedFunctions.TryGetValue((functionName, argumentsCount), out FunctionDefinition functionDefinition))
             {
-                if (argumentsCount != functionDefinition.Parameters.Count) { /* function not defined for this number of arguments */}
+                if (argumentsCount != functionDefinition.Parameters.Count)
+                    throw new RuntimeException("Function not defined for this number of arguments");
                 Dictionary<string, Value> arguments = new Dictionary<string, Value>();
                 for (int i = 0; i < argumentsCount; i++)
                 {
                     functionCallStatement.FunctionArguments[i].Accept(this);
-                    if (arguments.ContainsKey(functionDefinition.Parameters[i])) { /* duplicate argument */ }
+                    if (arguments.ContainsKey(functionDefinition.Parameters[i]))
+                        throw new RuntimeException("Duplicate arguments in function");
                     arguments.Add(functionDefinition.Parameters[i], ValueStack.Pop());
                 }
                 EnterFunction();
@@ -173,7 +166,8 @@ namespace BasiliskLang.Interpreter
                 functionDefinition.Accept(this);
                 LeaveFunction();
             }
-            else { /* function not defined */}
+            else
+                throw new RuntimeException("Call to undefined function");
         }
 
         public void Visit(LogicExpression logicExpression)
@@ -196,7 +190,6 @@ namespace BasiliskLang.Interpreter
             unaryExpression.InnerExpression.Accept(this);
             var currentValue = ValueStack.Pop();
             var result = currentValue.Operate(unaryExpression.Operation, null);
-            if(result == null) { /* something went wrong */}
             ValueStack.Push(result);
         }
 
@@ -223,22 +216,24 @@ namespace BasiliskLang.Interpreter
             }
             else if (DefinedFunctions.TryGetValue((functionName, argumentsCount), out FunctionDefinition functionDefinition))
             {
-                if (argumentsCount != functionDefinition.Parameters.Count) { /* function not defined for this number of arguments */}
+                if (argumentsCount != functionDefinition.Parameters.Count)
+                    throw new RuntimeException("Function not defined for this number of arguments");
                 Dictionary<string, Value> arguments = new Dictionary<string, Value>();
                 for (int i = 0; i < argumentsCount; i++)
                 {
                     functionCallExpression.FunctionArguments[i].Accept(this);
-                    if (arguments.ContainsKey(functionDefinition.Parameters[i])) { /* duplicate argument */ }
+                    if (arguments.ContainsKey(functionDefinition.Parameters[i]))
+                        throw new RuntimeException("Duplicate arguments in function");
                     arguments.Add(functionDefinition.Parameters[i], ValueStack.Pop());
                 }
                 EnterFunction();
                 foreach (var argument in arguments)
                     AddVariableValue(argument.Key, argument.Value);
                 functionDefinition.Accept(this);
-
                 LeaveFunction();
             }
-            else { /* function not defined */}
+            else
+                throw new RuntimeException("Call to undefined function");
         }
 
         public void Visit(BoolValueExpression boolValue) => ValueStack.Push(new DynamicValue(boolValue.value));

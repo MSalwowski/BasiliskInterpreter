@@ -22,12 +22,6 @@ namespace BasiliskLang
                 return false;
             if (this.children.Count != other.children.Count)
                 return false;
-            for (int i = 0; i < children.Count; i++)
-            {
-                if (this.children[i].Equals(other.children[i])) { }
-                else
-                    return false;
-            }
             return true;
         }
     }
