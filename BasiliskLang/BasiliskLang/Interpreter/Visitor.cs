@@ -116,6 +116,8 @@ namespace BasiliskLang.Interpreter
             while ((conditionResultDynamic.Value is bool && (bool)conditionResultDynamic.Value) || (conditionResultDynamic.Value is not bool && conditionResultDynamic.Value != 0))
             {
                 whileStatement.BlockStatement.Accept(this);
+                if (IsReturning)
+                    break;
                 whileStatement.Condition.Accept(this);
                 conditionResult = ValueStack.Pop();
                 if (conditionResult.Type != ValueType.Dynamic)

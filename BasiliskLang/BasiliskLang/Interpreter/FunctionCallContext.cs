@@ -10,7 +10,6 @@ namespace BasiliskLang.Interpreter
     {
         private Dictionary<string, Value> _scope;
 
-        public Dictionary<string, Value> Scope => _scope;
         public bool IsReturning { get; set; }
 
         public FunctionCallContext()
